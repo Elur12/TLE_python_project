@@ -44,7 +44,7 @@ class Sattelite():
     def __init__(self, name: str, place: place) -> None:
         self.my_place = place
         self.orb = Orbital(name, line1=satelites[name][0], line2=satelites[name][1])
-    @TLE
+    #@TLE
     def get_location(self):
         return self.orb.get_lonlatalt(datetime.now(UTC))
     def get_observer(self):
@@ -85,6 +85,6 @@ if __name__ == "__main__":
     print(por.tlefile.SATELLITES)
     update_tle(TLE_URLS)
     g = Sattelite("NOAA 15", place(55, 37, 0.1))
-    windows.main()
+    #windows.main()
     while True:
-        print(g.get_observer())
+        print(g.get_location())

@@ -37,10 +37,6 @@ class MplCanvas(FigureCanvas):
 
     def __init__(self, parent=None, width=8, height=6, dpi=100):
         fig = plt.figure(figsize=(width, height), edgecolor='w')
-        m = Basemap(projection='cyl', resolution=None,
-            llcrnrlat=-90, urcrnrlat=90,
-            llcrnrlon=-180, urcrnrlon=180, )
-        draw_map(m)
         super(MplCanvas, self).__init__(fig)
 
 
@@ -52,29 +48,35 @@ class MainWindow(QtWidgets.QMainWindow):
         self.canvas = MplCanvas(self, width=8, height=6, dpi=100)
         self.setCentralWidget(self.canvas)
 
-        n_data = 50
-        self.xdata = list(range(n_data))
-        self.ydata = [random.randint(0, 10) for i in range(n_data)]
+        self.clear()
+
         self.update_plot()
 
+        #self.func = func
         self.show()
 
         # Setup a timer to trigger the redraw by calling update_plot.
         self.timer = QtCore.QTimer()
-        self.timer.setInterval(10)
+        self.timer.setInterval(1000)
         self.timer.timeout.connect(self.update_plot)
         self.timer.start()
 
-    def update_plot(self):
-        global k
-        m = Basemap(projection='cyl', resolution=None,
+    def clear(self):
+        self.canvas.figure.clear()
+        self.m = Basemap(projection='cyl', resolution=None,
             llcrnrlat=-90, urcrnrlat=90,
             llcrnrlon=-180, urcrnrlon=180, )
-        m.scatter([37], [57], latlon=True,
+        draw_map(self.m)
+
+    def update_plot(self):
+        global k
+        self.m.scatter([37], [57], latlon=True,
             c=np.log10([0.5]), s=[k],
             cmap='Reds', alpha=0.5)
-        k = k + 100
-        draw_map(m)
+        if(k > 50):
+            self.clear()
+            k = 0
+        k = k + 10
         self.canvas.draw()
         
 
