@@ -14,7 +14,6 @@ from PyQt5 import QtCore, QtWidgets
 from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg as FigureCanvas
 from matplotlib.figure import Figure
 
-k = 1
 
 def draw_map(m, scale=0.2):
     # draw a shaded-relief image
@@ -43,13 +42,17 @@ class MplCanvas(FigureCanvas):
 class MainWindow(QtWidgets.QMainWindow):
 
     def __init__(self, *args, **kwargs):
-        super(MainWindow, self).__init__(*args, **kwargs)
+        super(MainWindow, self).__init__()
 
         self.canvas = MplCanvas(self, width=8, height=6, dpi=100)
         self.setCentralWidget(self.canvas)
 
-        self.clear()
+        self.clear_all()
 
+        self.get_latlon = kwargs["func_get_latlon"]
+        self.get_orbit_number = kwargs["func_get_orbit_number"]
+        self.orbit_number = None
+        self.quotes = []
         self.update_plot()
 
         #self.func = func
@@ -57,11 +60,11 @@ class MainWindow(QtWidgets.QMainWindow):
 
         # Setup a timer to trigger the redraw by calling update_plot.
         self.timer = QtCore.QTimer()
-        self.timer.setInterval(1000)
+        self.timer.setInterval(2147483647)
         self.timer.timeout.connect(self.update_plot)
         self.timer.start()
 
-    def clear(self):
+    def clear_all(self):
         self.canvas.figure.clear()
         self.m = Basemap(projection='cyl', resolution=None,
             llcrnrlat=-90, urcrnrlat=90,
@@ -69,20 +72,23 @@ class MainWindow(QtWidgets.QMainWindow):
         draw_map(self.m)
 
     def update_plot(self):
-        global k
-        self.m.scatter([37], [57], latlon=True,
-            c=np.log10([0.5]), s=[k],
-            cmap='Reds', alpha=0.5)
-        if(k > 50):
-            self.clear()
-            k = 0
-        k = k + 10
+        #self.clear()
+        if(self.orbit_number != self.get_orbit_number()):
+            self.orbit_number = self.get_orbit_number()
+            l = self.get_latlon()
+            if len(self.quotes) > 0:
+                for q in self.quotes:
+                    q.remove()
+                self.quotes.clear()
+            for i in range(len(l) - 1):
+                self.quotes.append(self.m.quiver(x = l[i][0], y= l[i][1], u=l[i+1][0] - l[i][0], v=l[i+1][1] - l[i][1], scale = 500, color = (1,0,0)))
+        
         self.canvas.draw()
         
 
-def main():
+def main(func, func2):
     app = QtWidgets.QApplication(sys.argv)
-    w = MainWindow()
+    w = MainWindow(func_get_latlon = func, func_get_orbit_number = func2)
     app.exec_()
 
 if __name__ == "__main__":

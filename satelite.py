@@ -5,6 +5,8 @@ import requests
 import os
 from dataclasses import dataclass
 
+import numpy as np
+
 import windows
 
 #orb = 
@@ -21,7 +23,9 @@ TLE_URLS = ('http://www.celestrak.com/NORAD/elements/active.txt',
 
 delta_tle_hours = 24
 
-satelites = {}
+satelite_line = {}
+
+satelites = []
 
 update_date = datetime.now(UTC) - timedelta(hours=delta_tle_hours + 1)
 
@@ -32,29 +36,64 @@ class place:
     alt: float = 0 #On km
 
 def TLE(func):
-    def wrapper():
+    def wrapper(*args, **kwargs):
+        global update_date
         if(datetime.now(UTC) - timedelta(hours=delta_tle_hours) >= update_date):
             update_date = update_tle(TLE_URLS)
-        func()
+        return func(*args, **kwargs)
     return wrapper
 
-class Sattelite():
+class Satelite():
     my_place: place
     orb: Orbital
+    name: str
     def __init__(self, name: str, place: place) -> None:
         self.my_place = place
-        self.orb = Orbital(name, line1=satelites[name][0], line2=satelites[name][1])
-    #@TLE
+        self.name = name
+        self.orb = Orbital(name, line1=satelite_line[name][0], line2=satelite_line[name][1])
+
+    @TLE
     def get_location(self):
         return self.orb.get_lonlatalt(datetime.now(UTC))
+    
+    @TLE
+    def get_while_loc(self, deltaseconds = 10):
+        i = 0
+        dt = datetime.now(UTC)
+        lonlatalt = []
+        orbit_num = self.orb.get_orbit_number(datetime.now(UTC))
+        while i < 1000 and self.orb.get_orbit_number(dt) == orbit_num:
+            dt = dt + timedelta(seconds=deltaseconds)
+            i += 1
+            lonlatalt.append(self.orb.get_lonlatalt(dt))
+        dt = datetime.now(UTC)
+        while i < 1000 and self.orb.get_orbit_number(dt) == orbit_num:
+            dt = dt - timedelta(seconds=deltaseconds)
+            i += 1
+            lonlatalt = [self.orb.get_lonlatalt(dt)] + lonlatalt
+
+        return lonlatalt
+
+    @TLE
+    def get_orbit_number(self):
+        return self.orb.get_orbit_number(datetime.now(UTC))
+
+    @TLE
     def get_observer(self):
         return self.orb.get_observer_look(datetime.now(UTC), self.my_place.lon, self.my_place.lat, self.my_place.alt)
+    
+    #@TLE
+    #def get_positions(self):
+    #    return self.orb.get_position(datetime.now(UTC), normalize=False)
+
+    def update(self):
+        self.orb = Orbital(self.name, line1=satelite_line[self.name][0], line2=satelite_line[self.name][1])
 
 
 
 
 
-def update_tle(urls) -> str:
+def update_tle(urls) -> datetime:
     update = datetime.now(UTC) - timedelta(hours=delta_tle_hours + 1)
     for root, dirs, files in os.walk(os.path.dirname(os.path.abspath(__file__)) + '/tle'):  
         for filename in files:
@@ -72,19 +111,20 @@ def update_tle(urls) -> str:
                 response = requests.get(url)
                 if(response.status_code == 200):
                     file.write(response.text)
+    
     with open(os.path.dirname(os.path.abspath(__file__)) + '/tle/' + update.strftime("tle_%d_%m_%Y-%H:%M:%S.txt"), 'r') as file:
         lines = file.readlines()
         for i in range(0, len(lines), 3):
             name = lines[i].strip()
             line1 = lines[i+1].strip()
             line2 = lines[i+2].strip()
-            satelites.update({name : (line1, line2)})
+            satelite_line.update({name : (line1, line2)})
+    
     return update
 
 if __name__ == "__main__":
     print(por.tlefile.SATELLITES)
-    update_tle(TLE_URLS)
-    g = Sattelite("NOAA 15", place(55, 37, 0.1))
-    #windows.main()
-    while True:
-        print(g.get_location())
+    update_date = update_tle(TLE_URLS)
+    satelites.append(Satelite("NOAA 15", place(55, 37, 0.1)))
+    print(satelites[0].get_while_loc())
+    windows.main(satelites[0].get_while_loc, satelites[0].get_orbit_number)
