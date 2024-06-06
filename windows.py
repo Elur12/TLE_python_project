@@ -51,8 +51,12 @@ class MainWindow(QtWidgets.QMainWindow):
 
         self.get_latlon = kwargs["func_get_latlon"]
         self.get_orbit_number = kwargs["func_get_orbit_number"]
+        self.get_location = kwargs["func_get_location"]
+
+        self.old_scatter = None
         self.orbit_number = None
-        self.quotes = []
+        self.plotes = None
+
         self.update_plot()
 
         #self.func = func
@@ -60,7 +64,7 @@ class MainWindow(QtWidgets.QMainWindow):
 
         # Setup a timer to trigger the redraw by calling update_plot.
         self.timer = QtCore.QTimer()
-        self.timer.setInterval(2147483647)
+        self.timer.setInterval(300)
         self.timer.timeout.connect(self.update_plot)
         self.timer.start()
 
@@ -75,20 +79,23 @@ class MainWindow(QtWidgets.QMainWindow):
         #self.clear()
         if(self.orbit_number != self.get_orbit_number()):
             self.orbit_number = self.get_orbit_number()
-            l = self.get_latlon()
-            if len(self.quotes) > 0:
-                for q in self.quotes:
-                    q.remove()
-                self.quotes.clear()
-            for i in range(len(l) - 1):
-                self.quotes.append(self.m.quiver(x = l[i][0], y= l[i][1], u=l[i+1][0] - l[i][0], v=l[i+1][1] - l[i][1], scale = 500, color = (1,0,0)))
+            l = self.get_latlon(deltaseconds = 10)
+            if self.plotes != None:
+                self.plotes.remove()
+                self.plotes = None
+            self.plotes,  = self.m.plot(l[0], l[1], color = (1,0,0))
         
+        if(self.old_scatter != None):
+            self.old_scatter.remove()
+        k = self.get_location()
+        self.old_scatter = self.m.scatter(k[0], k[1], latlon=True, c = (0,0,1), alpha=0.5)
+
         self.canvas.draw()
         
 
-def main(func, func2):
+def main(func, func2, func3):
     app = QtWidgets.QApplication(sys.argv)
-    w = MainWindow(func_get_latlon = func, func_get_orbit_number = func2)
+    w = MainWindow(func_get_latlon = func, func_get_orbit_number = func2, func_get_location = func3)
     app.exec_()
 
 if __name__ == "__main__":

@@ -47,51 +47,55 @@ class Satelite():
     my_place: place
     orb: Orbital
     name: str
-    def __init__(self, name: str, place: place) -> None:
+    speed: float
+    def __init__(self, name: str, place: place, speed: float) -> None:
         self.my_place = place
         self.name = name
+        self.speed = speed
+        self.start_time = datetime.now(UTC)
         self.orb = Orbital(name, line1=satelite_line[name][0], line2=satelite_line[name][1])
+
+    def timenow(self):
+        return self.start_time + (datetime.now(UTC) - self.start_time) * self.speed
 
     @TLE
     def get_location(self):
-        return self.orb.get_lonlatalt(datetime.now(UTC))
+        return self.orb.get_lonlatalt(self.timenow())
     
     @TLE
     def get_while_loc(self, deltaseconds = 10):
         i = 0
-        dt = datetime.now(UTC)
-        lonlatalt = []
-        orbit_num = self.orb.get_orbit_number(datetime.now(UTC))
+        dt = self.timenow()
+        lonlatalt = [[],[]]
+        orbit_num = self.orb.get_orbit_number(self.timenow())
         while i < 1000 and self.orb.get_orbit_number(dt) == orbit_num:
             dt = dt + timedelta(seconds=deltaseconds)
             i += 1
-            lonlatalt.append(self.orb.get_lonlatalt(dt))
-        dt = datetime.now(UTC)
+            lonlatalt[0].append(self.orb.get_lonlatalt(dt)[0])
+            lonlatalt[1].append(self.orb.get_lonlatalt(dt)[1])
+        dt = self.timenow()
         while i < 1000 and self.orb.get_orbit_number(dt) == orbit_num:
             dt = dt - timedelta(seconds=deltaseconds)
             i += 1
-            lonlatalt = [self.orb.get_lonlatalt(dt)] + lonlatalt
+            lonlatalt[0] = [self.orb.get_lonlatalt(dt)[0]] + lonlatalt[0]
+            lonlatalt[1] = [self.orb.get_lonlatalt(dt)[1]] + lonlatalt[1]
 
         return lonlatalt
 
     @TLE
     def get_orbit_number(self):
-        return self.orb.get_orbit_number(datetime.now(UTC))
+        return self.orb.get_orbit_number(self.timenow())
 
     @TLE
     def get_observer(self):
-        return self.orb.get_observer_look(datetime.now(UTC), self.my_place.lon, self.my_place.lat, self.my_place.alt)
+        return self.orb.get_observer_look(self.timenow(), self.my_place.lon, self.my_place.lat, self.my_place.alt)
     
     #@TLE
     #def get_positions(self):
-    #    return self.orb.get_position(datetime.now(UTC), normalize=False)
+    #    return self.orb.get_position(self.timenow(), normalize=False)
 
     def update(self):
         self.orb = Orbital(self.name, line1=satelite_line[self.name][0], line2=satelite_line[self.name][1])
-
-
-
-
 
 def update_tle(urls) -> datetime:
     update = datetime.now(UTC) - timedelta(hours=delta_tle_hours + 1)
@@ -125,6 +129,6 @@ def update_tle(urls) -> datetime:
 if __name__ == "__main__":
     print(por.tlefile.SATELLITES)
     update_date = update_tle(TLE_URLS)
-    satelites.append(Satelite("NOAA 15", place(55, 37, 0.1)))
+    satelites.append(Satelite("NOAA 15", place(55, 37, 0.1), 100))
     print(satelites[0].get_while_loc())
-    windows.main(satelites[0].get_while_loc, satelites[0].get_orbit_number)
+    windows.main(satelites[0].get_while_loc, satelites[0].get_orbit_number, satelites[0].get_location)
