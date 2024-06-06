@@ -12,7 +12,7 @@ class MainWindow(QDialog):
         super().__init__()
 
         self.setWindowTitle("Трекинг спутников на базе TLE данных")
-        self.setMinimumSize(630, 600)
+        self.setMinimumSize(1280, 720)
         self.resize(630, 300)
 
         vbox = QVBoxLayout()
@@ -65,6 +65,15 @@ class TabTracking(QWidget):
 
         left_frame = QFrame()
         left_frame.setFrameShape(QFrame.StyledPanel)
+
+        vbox_left = QVBoxLayout()
+
+        image_pixmap = QPixmap("test_image.png").scaled(622, 311)
+        image_label = QLabel()
+        image_label.setPixmap(image_pixmap)
+        vbox_left.addWidget(image_label)
+
+        left_frame.setLayout(vbox_left)
 
         splitter = QSplitter(QtCore.Qt.Horizontal)
 

@@ -13,6 +13,7 @@ from PyQt5 import QtCore, QtWidgets
 
 from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg as FigureCanvas
 from matplotlib.figure import Figure
+import satelite
 
 
 def draw_map(m, scale=0.2):
@@ -60,7 +61,7 @@ class MainWindow(QtWidgets.QMainWindow):
 
         # Setup a timer to trigger the redraw by calling update_plot.
         self.timer = QtCore.QTimer()
-        self.timer.setInterval(2147483647)
+        self.timer.setInterval(10000)
         self.timer.timeout.connect(self.update_plot)
         self.timer.start()
 
