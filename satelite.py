@@ -74,16 +74,18 @@ class Satelite():
         while i < 1000 and self.orb.get_orbit_number(dt) == orbit_num:
             dt = dt + timedelta(seconds=deltaseconds)
             i += 1
-            lonlatalt[0].append(self.orb.get_lonlatalt(dt)[0])
-            lonlatalt[1].append(self.orb.get_lonlatalt(dt)[1])
+            lonlatalt_h = self.orb.get_lonlatalt(dt)
+            lonlatalt[0].append(lonlatalt_h[0])
+            lonlatalt[1].append(lonlatalt_h[1])
 
         dt = self.timenow()
 
         while i < 1000 and self.orb.get_orbit_number(dt) == orbit_num:
             dt = dt - timedelta(seconds=deltaseconds)
             i += 1
-            lonlatalt[0] = [self.orb.get_lonlatalt(dt)[0]] + lonlatalt[0]
-            lonlatalt[1] = [self.orb.get_lonlatalt(dt)[1]] + lonlatalt[1]
+            lonlatalt_h = self.orb.get_lonlatalt(dt)
+            lonlatalt[0] = [lonlatalt_h[0]] + lonlatalt[0]
+            lonlatalt[1] = [lonlatalt_h[1]] + lonlatalt[1]
 
         return lonlatalt
 

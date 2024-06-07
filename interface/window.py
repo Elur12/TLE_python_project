@@ -7,14 +7,18 @@ from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg as FigureCanvas
 from PyQt5 import QtWidgets, uic, QtCore, Qt, QtWidgets
 from PyQt5.QtWidgets import QApplication, QMainWindow, QWidget, QPushButton, QLabel, QSlider, QVBoxLayout, QScrollArea, \
     QTabWidget, QDialog, QTableWidget, QHBoxLayout, QSplitter, QTextEdit, QFrame, QCheckBox, QTableWidgetItem, QLineEdit
-from PyQt5.QtGui import QPixmap
 import sys
-from matplotlib.figure import Figure
 from itertools import chain
-import matplotlib
 from PyQt5.QtCore import Qt
 
 matplotlib.use('Qt5Agg')
+
+
+COLOR_VAL = 12
+COLOR_BRIGHTNESS = 1
+COLOR_UNBRIGHTNESS = 0.5
+
+COVERAGE_LON = 20
 
 def draw_map(m, scale=0.2):
     # draw a shaded-relief image
@@ -66,11 +70,14 @@ class MainWindow(QDialog):
         self.setMinimumSize(1280, 720)
         self.resize(630, 300)
 
+        self.place = [0, 0]
+
         right_frame = QFrame()
         right_frame.setFrameShape(QFrame.StyledPanel)
 
         left_frame = QFrame()
         left_frame.setFrameShape(QFrame.StyledPanel)
+
 
         label_updated = QLabel("updated time: ")
         label_time = QLabel("test", right_frame)
@@ -81,6 +88,20 @@ class MainWindow(QDialog):
         self.query = QLineEdit()
         self.query.setPlaceholderText("Search...")
         self.query.textChanged.connect(self.search)
+
+        doubleSpinBox = QtWidgets.QDoubleSpinBox()
+        doubleSpinBox.setGeometry(QtCore.QRect(230, 10, 161, 24))
+        doubleSpinBox.setDecimals(6)
+        doubleSpinBox.setMinimum(-90.0)
+        doubleSpinBox.setMaximum(90.0)
+        doubleSpinBox.valueChanged.connect(lambda x: self.update_place(x, 1))
+
+        doubleSpinBox_2 = QtWidgets.QDoubleSpinBox()
+        doubleSpinBox_2.setGeometry(QtCore.QRect(230, 40, 161, 24))
+        doubleSpinBox_2.setDecimals(6)
+        doubleSpinBox_2.setMinimum(-180.0)
+        doubleSpinBox_2.setMaximum(180.0)
+        doubleSpinBox_2.valueChanged.connect(lambda x: self.update_place(x, 0))
 
         self.table = QTableWidget()
         self.table.setColumnCount(1)
@@ -99,10 +120,11 @@ class MainWindow(QDialog):
         tab_widget = QTabWidget()
 
         tab_widget.addTab(TabTracking(), "Tracking")
-        tab_widget.addTab(TabWorldMap(sattelites=sattelites), "World Map")
+        tab_widget.addTab(TabWorldMap(sattelites=sattelites, place=self.place), "World Map")
         tab_widget.addTab(TabSchedule(), "Schedule")
         tab_widget.addTab(TabSettings(), "Settings")
         
+
         vbox_left = QVBoxLayout()
         vbox_right = QVBoxLayout()
         
@@ -110,8 +132,15 @@ class MainWindow(QDialog):
         vbox_right.addWidget(self.table)
         vbox_right.addWidget(label_updated)
         vbox_right.addWidget(label_time)
+
+        vbox_right.addWidget(QLabel("LAT: "))
+        vbox_right.addWidget(doubleSpinBox)
+        vbox_right.addWidget(QLabel("LON: "))
+        vbox_right.addWidget(doubleSpinBox_2)
+
         vbox_right.addWidget(update_button)
         
+
         vbox_left.addWidget(tab_widget)
 
         right_frame.setLayout(vbox_right)
@@ -132,8 +161,13 @@ class MainWindow(QDialog):
         self.timer.setInterval(1000)
         self.timer.timeout.connect(lambda : self.update_time(label_time))
         self.timer.start()
+
+
     def update_time(self, label_time: QLabel):
         label_time.setText(datetime.now(UTC).strftime("%d_%m_%Y %H:%M:%S"))
+
+    def update_place(self, value: float, i: int):
+        self.place[i] = value
 
 class TabTracking(QWidget):
     def __init__(self):
@@ -169,7 +203,7 @@ class MplCanvas(FigureCanvas):
         super(MplCanvas, self).__init__(fig)
 
 class TabWorldMap(QWidget):
-    def __init__(self, sattelites):
+    def __init__(self, sattelites, place):
         super().__init__()
         vbox = QVBoxLayout()
 
@@ -185,6 +219,13 @@ class TabWorldMap(QWidget):
         self.orbit_number = {}
         self.plotes = {}
         self.text = {}
+        self.color = {}
+        self.color_iter = 0
+
+        self.place_pos = place
+        self.old_place_pos = place.copy()
+        self.place = self.m.scatter(self.place_pos[0], self.place_pos[1], latlon=True, c = (1,0.5,0.5), alpha=0.5)
+        self.text_place = self.canvas.plt.text(self.place_pos[0]+6, self.place_pos[1]+6, "Your Place", fontsize=8, backgroundcolor = (1,1,1,0.7))
 
         self.update_plot()
 
@@ -207,19 +248,31 @@ class TabWorldMap(QWidget):
     def update_plot(self):
         #self.clear()
         for i in selected_items:
+            if(self.color.get(i) == None):
+                self.color[i] = rainbow(self.color_iter, COLOR_VAL, COLOR_BRIGHTNESS, COLOR_UNBRIGHTNESS)
+                self.color_iter += 1
+                if(self.color_iter >= COLOR_VAL*(1/COLOR_UNBRIGHTNESS)*(1/(COLOR_BRIGHTNESS-COLOR_UNBRIGHTNESS))):
+                    self.color_iter = 0
+            col = self.color.get(i)
+
             if(self.orbit_number.get(i) != self.sattelites[i].get_orbit_number()):
                 self.orbit_number[i] = self.sattelites[i].get_orbit_number()
                 l = self.sattelites[i].get_while_loc(deltaseconds = 10)
+                l_old = rasdel(l)
                 if self.plotes.get(i) != None:
-                    self.plotes.get(i).remove()
-                    self.plotes[i] = None
-                self.plotes[i],  = self.m.plot(l[0], l[1], color = (1,0,0))
+                    for j in self.plotes.get(i):
+                        j.remove()
+                self.plotes[i] = []
+                
+                for o in l_old:
+                    j,  = self.m.plot(o[0], o[1], c = col)
+                    self.plotes[i].append(j)
 
             if(self.old_scatter.get(i) != None):
                 self.old_scatter.get(i).remove()
                 self.old_scatter[i] = None
             k = self.sattelites.get(i).get_location()
-            self.old_scatter[i] = self.m.scatter(k[0], k[1], latlon=True, c = (0,0,1), alpha=0.5)
+            self.old_scatter[i] = self.m.scatter(k[0], k[1], latlon=True, c = col, alpha=0.5)
             if(self.text.get(i) != None):
                 self.text.get(i).remove()
                 self.text[i] = None
@@ -228,13 +281,27 @@ class TabWorldMap(QWidget):
 
         for i in self.old_selected_items - selected_items:
                 self.old_scatter.get(i).remove()
-                self.plotes.get(i).remove()
-                self.plotes[i] = None
+                for j in self.plotes.get(i):
+                    j.remove()
+                self.plotes[i] = []
                 self.old_scatter[i] = None
                 self.orbit_number[i] = None
                 self.text.get(i).remove()
                 self.text[i] = None
         self.old_selected_items = selected_items.copy()
+
+        if(self.place_pos != self.old_place_pos):
+            self.place.remove()
+            self.text_place.remove()
+
+            self.place = self.m.scatter(self.place_pos[0], self.place_pos[1], latlon=True, c = (1,0.5,0.5), alpha=0.5)
+            self.text_place = self.canvas.plt.text(self.place_pos[0]+6, self.place_pos[1]+6, "Your Place", fontsize=8, backgroundcolor = (1,1,1,0.7))
+            
+            #Дописать обновление в расчётах
+            #for i in selected_items:
+
+            self.old_place_pos = self.place_pos.copy()
+
 
         self.canvas.draw()
 
@@ -258,6 +325,37 @@ class TabSettings(QWidget):
     def __init__(self):
         super().__init__()
 
+
+def rasdel(l):
+    k = []
+    k_sorted = []
+    kj = [0]
+    for i in range(len(l[0]) - 1):
+        k.append(abs((l[0][i] - l[0][i+1])))
+    k_sorted = sorted(k, reverse=True)
+    
+    if k_sorted[0] + COVERAGE_LON >= 360:
+        kj.append(k.index(k_sorted[0]) + 1)
+    if k_sorted[1] + COVERAGE_LON >= 360:
+        kj.append(k.index(k_sorted[1]) + 1)
+
+    kj.append(len(l[0]))
+
+    kl = []
+    for i in range(len(kj) - 1):
+        kl.append([l[0][kj[i]:kj[i+1]],l[1][kj[i]:kj[i+1]]])
+    return kl
+
+def rainbow(iter, speed, brightness, unbrightness):
+    big_iter = iter // speed 
+    brightness = brightness - unbrightness * ((unbrightness*big_iter) // brightness)
+    unbrightness = (unbrightness*big_iter) % brightness
+
+    g = lambda i: (abs(3*(i%(speed) - 5/6*speed)/speed) - 0.5)
+    r = lambda i: (abs(3*(i%(speed) - 1/2*speed)/speed) - 0.5)
+    b = lambda i: (abs(3*(i%(speed) - 1/6*speed)/speed) - 0.5)
+    to_formul = lambda i, k: min(1, max(2*(k(i) > 1) + k(i)*(1-2*(k(i) > 1)), 0) * 2)
+    return (to_formul(iter, r)*(brightness - unbrightness*big_iter) + big_iter*unbrightness, to_formul(iter, g)*(brightness - unbrightness*big_iter) + big_iter*unbrightness, to_formul(iter, b)*(brightness - unbrightness*big_iter) + big_iter*unbrightness)
 
 def window(sattelites):
     app = QApplication(sys.argv)

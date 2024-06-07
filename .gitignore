@@ -1,3 +1,6 @@
 .venv
 task.txt
 tle
+.idea
+__pycache__
+interface/__pycache__
