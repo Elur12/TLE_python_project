@@ -7,7 +7,7 @@ from dataclasses import dataclass
 
 import numpy as np
 
-import windows
+import interface.window as win
 
 #orb = 
 
@@ -25,7 +25,7 @@ delta_tle_hours = 24
 
 satelite_line = {}
 
-satelites = []
+satelites = {}
 
 update_date = datetime.now(UTC) - timedelta(hours=delta_tle_hours + 1)
 
@@ -40,6 +40,8 @@ def TLE(func):
         global update_date
         if(datetime.now(UTC) - timedelta(hours=delta_tle_hours) >= update_date):
             update_date = update_tle(TLE_URLS)
+            for i in satelites:
+                i.update()
         return func(*args, **kwargs)
     return wrapper
 
@@ -63,7 +65,7 @@ class Satelite():
         return self.orb.get_lonlatalt(self.timenow())
     
     @TLE
-    def get_while_loc(self, deltaseconds = 10):
+    def get_while_loc(self, deltaseconds: float = 10):
         i = 0
         dt = self.timenow()
         lonlatalt = [[],[]]
@@ -93,6 +95,9 @@ class Satelite():
     #@TLE
     #def get_positions(self):
     #    return self.orb.get_position(self.timenow(), normalize=False)
+
+    def update_place(self, place: place):
+        self.my_place = place
 
     def update(self):
         self.orb = Orbital(self.name, line1=satelite_line[self.name][0], line2=satelite_line[self.name][1])
@@ -129,6 +134,11 @@ def update_tle(urls) -> datetime:
 if __name__ == "__main__":
     print(por.tlefile.SATELLITES)
     update_date = update_tle(TLE_URLS)
-    satelites.append(Satelite("NOAA 15", place(55, 37, 0.1), 100))
-    print(satelites[0].get_while_loc())
-    windows.main(satelites[0].get_while_loc, satelites[0].get_orbit_number, satelites[0].get_location)
+    for i in satelite_line.keys():
+        print(i)
+        try:
+            satelites.update({i:Satelite(i, place(55, 37, 0.1), 1)})
+        except:
+            print("Sattelite: ", i, ", doesn't work")
+
+    win.window(satelites)
