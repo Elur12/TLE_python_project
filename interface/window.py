@@ -138,7 +138,26 @@ class MainWindow(QDialog):
 class TabTracking(QWidget):
     def __init__(self):
         super().__init__()
-        self.canvas = MplCanvas(self, width=8, height=8, dpi=100)
+
+        self.canvas = MplCanvas(self, width=5, height=4, dpi=100)
+        #self.setCentralWidget(self.canvas)
+
+        self.show()
+
+        # Setup a timer to trigger the redraw by calling update_plot.
+        self.timer = QtCore.QTimer()
+        self.timer.setInterval(100)
+        self.timer.timeout.connect(self.update_plot)
+        self.timer.start()
+
+    def update_plot(self):
+        # Drop off the first y element, append a new one.
+        #self.ydata = self.ydata[1:] + [random.randint(0, 10)]
+        #self.canvas.axes.cla()  # Clear the canvas.
+        #self.canvas.axes.plot(self.xdata, self.ydata, 'r')
+        # Trigger the canvas to update and redraw.
+        self.canvas.draw()
+
 
 
 
@@ -154,7 +173,7 @@ class TabWorldMap(QWidget):
         super().__init__()
         vbox = QVBoxLayout()
 
-        self.canvas = MplCanvas(self, width=8, height=8, dpi=100)
+        self.canvas = MplCanvas(self, width=8, height=6, dpi=100)
 
         self.clear_all()
 

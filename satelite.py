@@ -40,8 +40,8 @@ def TLE(func):
         global update_date
         if(datetime.now(UTC) - timedelta(hours=delta_tle_hours) >= update_date):
             update_date = update_tle(TLE_URLS)
-            for i in satelites:
-                i.update()
+            for i in satelites.keys():
+                satelites[i].update()
         return func(*args, **kwargs)
     return wrapper
 
@@ -70,12 +70,15 @@ class Satelite():
         dt = self.timenow()
         lonlatalt = [[],[]]
         orbit_num = self.orb.get_orbit_number(self.timenow())
+
         while i < 1000 and self.orb.get_orbit_number(dt) == orbit_num:
             dt = dt + timedelta(seconds=deltaseconds)
             i += 1
             lonlatalt[0].append(self.orb.get_lonlatalt(dt)[0])
             lonlatalt[1].append(self.orb.get_lonlatalt(dt)[1])
+
         dt = self.timenow()
+
         while i < 1000 and self.orb.get_orbit_number(dt) == orbit_num:
             dt = dt - timedelta(seconds=deltaseconds)
             i += 1
@@ -106,7 +109,6 @@ def update_tle(urls) -> datetime:
     update = datetime.now(UTC) - timedelta(hours=delta_tle_hours + 1)
     for root, dirs, files in os.walk(os.path.dirname(os.path.abspath(__file__)) + '/tle'):  
         for filename in files:
-            print(filename)
 
             old_tle_date = datetime.strptime(filename, "tle_%d_%m_%Y-%H:%M:%S.txt").replace(tzinfo=UTC)
             
@@ -132,12 +134,10 @@ def update_tle(urls) -> datetime:
     return update
 
 if __name__ == "__main__":
-    print(por.tlefile.SATELLITES)
     update_date = update_tle(TLE_URLS)
     for i in satelite_line.keys():
-        print(i)
         try:
-            satelites.update({i:Satelite(i, place(55, 37, 0.1), 1)})
+            satelites.update({i:Satelite(i, place(55, 37, 0.1), 100)})
         except:
             print("Sattelite: ", i, ", doesn't work")
 
