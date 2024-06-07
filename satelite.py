@@ -109,6 +109,7 @@ class Satelite():
 
 def update_tle(urls) -> datetime:
     update = datetime.now(UTC) - timedelta(hours=delta_tle_hours + 1)
+    create_folder(os.path.dirname(os.path.abspath(__file__)), 'tle')
     for root, dirs, files in os.walk(os.path.dirname(os.path.abspath(__file__)) + '/tle'):  
         for filename in files:
 
@@ -134,6 +135,14 @@ def update_tle(urls) -> datetime:
             satelite_line.update({name : (line1, line2)})
     
     return update
+
+def create_folder(workspace, folder):
+    path = os.path.join(workspace, folder)
+    if not os.path.exists(path):
+        os.makedirs(path)
+        print("create folder with path {0}".format(path))
+    else:
+        print("folder exists {0}".format(path))
 
 if __name__ == "__main__":
     update_date = update_tle(TLE_URLS)
