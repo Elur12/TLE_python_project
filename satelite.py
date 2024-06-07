@@ -31,8 +31,8 @@ update_date = datetime.now(UTC) - timedelta(hours=delta_tle_hours + 1)
 
 @dataclass
 class place:
-    lat: float = 0
     lon: float = 0
+    lat: float = 0
     alt: float = 0 #On km
 
 def TLE(func):
@@ -101,8 +101,12 @@ class Satelite():
     #def get_positions(self):
     #    return self.orb.get_position(self.timenow(), normalize=False)
 
-    def update_place(self, place: place):
-        self.my_place = place
+    def update_place(self, my_place):
+        if(type(my_place) != place):
+            self.my_place = place(my_place[0],my_place[1],my_place[2])
+        else:
+            self.my_place = my_place
+        print(self.my_place.lon, self.my_place.lat, self.my_place.alt)
 
     def update(self):
         self.orb = Orbital(self.name, line1=satelite_line[self.name][0], line2=satelite_line[self.name][1])

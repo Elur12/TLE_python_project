@@ -70,7 +70,7 @@ class MainWindow(QDialog):
         self.setMinimumSize(1280, 720)
         self.resize(630, 300)
 
-        self.place = [0, 0]
+        self.place = [0, 0, 0]
 
         right_frame = QFrame()
         right_frame.setFrameShape(QFrame.StyledPanel)
@@ -103,6 +103,11 @@ class MainWindow(QDialog):
         doubleSpinBox_2.setMaximum(180.0)
         doubleSpinBox_2.valueChanged.connect(lambda x: self.update_place(x, 0))
 
+        doubleSpinBox_3 = QtWidgets.QDoubleSpinBox()
+        doubleSpinBox_3.setGeometry(QtCore.QRect(230, 40, 161, 24))
+        doubleSpinBox_3.setDecimals(3)
+        doubleSpinBox_3.valueChanged.connect(lambda x: self.update_place(x, 2))
+
         self.table = QTableWidget()
         self.table.setColumnCount(1)
         self.table.setRowCount(len(keys))
@@ -133,10 +138,12 @@ class MainWindow(QDialog):
         vbox_right.addWidget(label_updated)
         vbox_right.addWidget(label_time)
 
-        vbox_right.addWidget(QLabel("LAT: "))
-        vbox_right.addWidget(doubleSpinBox)
         vbox_right.addWidget(QLabel("LON: "))
         vbox_right.addWidget(doubleSpinBox_2)
+        vbox_right.addWidget(QLabel("LAT: "))
+        vbox_right.addWidget(doubleSpinBox)
+        vbox_right.addWidget(QLabel("ALT: "))
+        vbox_right.addWidget(doubleSpinBox_3)
 
         vbox_right.addWidget(update_button)
         
@@ -247,6 +254,17 @@ class TabWorldMap(QWidget):
 
     def update_plot(self):
         #self.clear()
+        update_place = False
+        if(self.place_pos != self.old_place_pos):
+            self.place.remove()
+            self.text_place.remove()
+
+            self.place = self.m.scatter(self.place_pos[0], self.place_pos[1], latlon=True, c = (1,0.5,0.5), alpha=0.5)
+            self.text_place = self.canvas.plt.text(self.place_pos[0]+6, self.place_pos[1]+6, "Your Place", fontsize=8, backgroundcolor = (1,1,1,0.7))
+            
+            self.old_place_pos = self.place_pos.copy()
+
+            update_place = True
         for i in selected_items:
             if(self.color.get(i) == None):
                 self.color[i] = rainbow(self.color_iter, COLOR_VAL, COLOR_BRIGHTNESS, COLOR_UNBRIGHTNESS)
@@ -279,29 +297,23 @@ class TabWorldMap(QWidget):
             x, y = self.m(k[0], k[1])
             self.text[i] = self.canvas.plt.text(x+6, y+6, i, fontsize=12, backgroundcolor = (0.8,0.8,0.9,0.7))
 
+            if(update_place):
+                self.sattelites[i].update_place(self.place_pos)
+
         for i in self.old_selected_items - selected_items:
-                self.old_scatter.get(i).remove()
-                for j in self.plotes.get(i):
-                    j.remove()
-                self.plotes[i] = []
-                self.old_scatter[i] = None
-                self.orbit_number[i] = None
-                self.text.get(i).remove()
-                self.text[i] = None
+            self.old_scatter.get(i).remove()
+            for j in self.plotes.get(i):
+                j.remove()
+            self.plotes[i] = []
+            self.old_scatter[i] = None
+            self.orbit_number[i] = None
+            self.text.get(i).remove()
+            self.text[i] = None
+        
+        for i in selected_items - self.old_selected_items:
+            self.sattelites[i].update_place(self.place_pos)
+
         self.old_selected_items = selected_items.copy()
-
-        if(self.place_pos != self.old_place_pos):
-            self.place.remove()
-            self.text_place.remove()
-
-            self.place = self.m.scatter(self.place_pos[0], self.place_pos[1], latlon=True, c = (1,0.5,0.5), alpha=0.5)
-            self.text_place = self.canvas.plt.text(self.place_pos[0]+6, self.place_pos[1]+6, "Your Place", fontsize=8, backgroundcolor = (1,1,1,0.7))
-            
-            #Дописать обновление в расчётах
-            #for i in selected_items:
-
-            self.old_place_pos = self.place_pos.copy()
-
 
         self.canvas.draw()
 
