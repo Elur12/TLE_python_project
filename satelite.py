@@ -1,13 +1,13 @@
 import pyorbital as por
 from pyorbital.orbital import Orbital
-from datetime import datetime, timedelta
+from datetime import datetime, UTC, timedelta
 import requests
 import os
 from dataclasses import dataclass
 
 import numpy as np
 
-import windows
+import interface.window as win
 
 #orb = 
 
@@ -25,21 +25,23 @@ delta_tle_hours = 24
 
 satelite_line = {}
 
-satelites = []
+satelites = {}
 
-update_date = datetime.utcnow() - timedelta(hours=delta_tle_hours + 1)
+update_date = datetime.now(UTC) - timedelta(hours=delta_tle_hours + 1)
 
 @dataclass
 class place:
-    lat: float = 0
     lon: float = 0
+    lat: float = 0
     alt: float = 0 #On km
 
 def TLE(func):
     def wrapper(*args, **kwargs):
         global update_date
-        if(datetime.utcnow() - timedelta(hours=delta_tle_hours) >= update_date):
+        if(datetime.now(UTC) - timedelta(hours=delta_tle_hours) >= update_date):
             update_date = update_tle(TLE_URLS)
+            for i in satelites.keys():
+                satelites[i].update()
         return func(*args, **kwargs)
     return wrapper
 
@@ -47,65 +49,81 @@ class Satelite():
     my_place: place
     orb: Orbital
     name: str
-    def __init__(self, name: str, place: place) -> None:
+    speed: float
+    def __init__(self, name: str, place: place, speed: float) -> None:
         self.my_place = place
         self.name = name
+        self.speed = speed
+        self.start_time = datetime.now(UTC)
         self.orb = Orbital(name, line1=satelite_line[name][0], line2=satelite_line[name][1])
+
+    def timenow(self):
+        return self.start_time + (datetime.now(UTC) - self.start_time) * self.speed
 
     @TLE
     def get_location(self):
-        return self.orb.get_lonlatalt(datetime.utcnow())
+        return self.orb.get_lonlatalt(self.timenow())
     
     @TLE
-    def get_while_loc(self, deltaseconds = 10):
+    def get_while_loc(self, deltaseconds: float = 10):
         i = 0
-        dt = datetime.utcnow()
-        lonlatalt = []
-        orbit_num = self.orb.get_orbit_number(datetime.utcnow())
+        dt = self.timenow()
+        lonlatalt = [[],[]]
+        orbit_num = self.orb.get_orbit_number(self.timenow())
+
         while i < 1000 and self.orb.get_orbit_number(dt) == orbit_num:
             dt = dt + timedelta(seconds=deltaseconds)
             i += 1
-            lonlatalt.append(self.orb.get_lonlatalt(dt))
-        dt = datetime.utcnow()
+            lonlatalt_h = self.orb.get_lonlatalt(dt)
+            lonlatalt[0].append(lonlatalt_h[0])
+            lonlatalt[1].append(lonlatalt_h[1])
+
+        dt = self.timenow()
+
         while i < 1000 and self.orb.get_orbit_number(dt) == orbit_num:
             dt = dt - timedelta(seconds=deltaseconds)
             i += 1
-            lonlatalt = [self.orb.get_lonlatalt(dt)] + lonlatalt
+            lonlatalt_h = self.orb.get_lonlatalt(dt)
+            lonlatalt[0] = [lonlatalt_h[0]] + lonlatalt[0]
+            lonlatalt[1] = [lonlatalt_h[1]] + lonlatalt[1]
 
         return lonlatalt
 
     @TLE
     def get_orbit_number(self):
-        return self.orb.get_orbit_number(datetime.utcnow())
+        return self.orb.get_orbit_number(self.timenow())
 
     @TLE
     def get_observer(self):
-        return self.orb.get_observer_look(datetime.utcnow(), self.my_place.lon, self.my_place.lat, self.my_place.alt)
+        return self.orb.get_observer_look(self.timenow(), self.my_place.lon, self.my_place.lat, self.my_place.alt)
     
     #@TLE
     #def get_positions(self):
-    #    return self.orb.get_position(datetime.utcnow(), normalize=False)
+    #    return self.orb.get_position(self.timenow(), normalize=False)
+
+    def update_place(self, my_place):
+        if(type(my_place) != place):
+            self.my_place = place(my_place[0],my_place[1],my_place[2])
+        else:
+            self.my_place = my_place
+        print(self.my_place.lon, self.my_place.lat, self.my_place.alt)
 
     def update(self):
         self.orb = Orbital(self.name, line1=satelite_line[self.name][0], line2=satelite_line[self.name][1])
 
-
-
-
-
 def update_tle(urls) -> datetime:
-    update = datetime.utcnow() - timedelta(hours=delta_tle_hours + 1)
+    update = datetime.now(UTC) - timedelta(hours=delta_tle_hours + 1)
+    create_folder(os.path.dirname(os.path.abspath(__file__)), 'tle')
     for root, dirs, files in os.walk(os.path.dirname(os.path.abspath(__file__)) + '/tle'):  
         for filename in files:
-            print(filename)
 
-            old_tle_date = datetime.strptime(filename, "tle_%d_%m_%Y-%H:%M:%S.txt")
+            old_tle_date = datetime.strptime(filename, "tle_%d_%m_%Y-%H:%M:%S.txt").replace(tzinfo=UTC)
             
             if(old_tle_date > update):
                 update = old_tle_date
     
-    if(datetime.utcnow() - timedelta(hours=delta_tle_hours) >= update):
-        update = datetime.utcnow()
+    if(datetime.now(UTC) - timedelta(hours=delta_tle_hours) >= update):
+        update = datetime.now(UTC)
         with open(os.path.dirname(os.path.abspath(__file__)) + '/tle/' + update.strftime("tle_%d_%m_%Y-%H:%M:%S.txt"), 'w') as file:
             for url in urls:
                 response = requests.get(url)
@@ -122,12 +140,20 @@ def update_tle(urls) -> datetime:
     
     return update
 
-def main():
-    print(por.tlefile.SATELLITES)
-    update_date = update_tle(TLE_URLS)
-    satelites.append(Satelite("NOAA 15", place(55, 37, 0.1)))
-    print(satelites[0].get_while_loc())
-    window = windows.main(satelites[0].get_while_loc, satelites[0].get_orbit_number)
+def create_folder(workspace, folder):
+    path = os.path.join(workspace, folder)
+    if not os.path.exists(path):
+        os.makedirs(path)
+        print("create folder with path {0}".format(path))
+    else:
+        print("folder exists {0}".format(path))
 
 if __name__ == "__main__":
-    main()
+    update_date = update_tle(TLE_URLS)
+    for i in satelite_line.keys():
+        try:
+            satelites.update({i:Satelite(i, place(55, 37, 0.1), 100)})
+        except:
+            print("Sattelite: ", i, ", doesn't work")
+
+    win.window(satelites)
