@@ -20,6 +20,10 @@ COLOR_UNBRIGHTNESS = 0.5
 
 COVERAGE_LON = 20
 
+MAX_ANGLE = 10
+HORIZON = 0
+DELTA_SECONDS = 0.5
+
 def draw_map(m, scale=0.2):
     # draw a shaded-relief image
     m.shadedrelief(scale=scale)
@@ -39,7 +43,7 @@ def draw_map(m, scale=0.2):
 
 
 selected_items = set()
-
+color = {}
 
 class MainWindow(QDialog):
 
@@ -63,7 +67,7 @@ class MainWindow(QDialog):
             for item in matching_items:
                 item.setSelected(True)
 
-    def __init__(self, sattelites):
+    def __init__(self, sattelites, timenow):
         super().__init__()
 
         self.setWindowTitle("Трекинг спутников на базе TLE данных")
@@ -111,6 +115,7 @@ class MainWindow(QDialog):
         self.table = QTableWidget()
         self.table.setColumnCount(1)
         self.table.setRowCount(len(keys))
+        self.table.horizontalHeader().setStretchLastSection(True)
         self.table.setHorizontalHeaderLabels(["check","Satellites"])
 
         # Расстановка спутников
@@ -124,7 +129,7 @@ class MainWindow(QDialog):
 
         tab_widget = QTabWidget()
 
-        tab_widget.addTab(TabTracking(), "Tracking")
+        tab_widget.addTab(TabTracking(sattelites=sattelites, timenow=timenow, place=self.place), "Tracking")
         tab_widget.addTab(TabWorldMap(sattelites=sattelites, place=self.place), "World Map")
         tab_widget.addTab(TabSchedule(), "Schedule")
         tab_widget.addTab(TabSettings(), "Settings")
@@ -166,47 +171,105 @@ class MainWindow(QDialog):
 
         self.timer = QtCore.QTimer()
         self.timer.setInterval(1000)
-        self.timer.timeout.connect(lambda : self.update_time(label_time))
+        self.timer.timeout.connect(lambda : self.update_time(label_time, timenow))
         self.timer.start()
 
 
-    def update_time(self, label_time: QLabel):
-        label_time.setText(datetime.now(UTC).strftime("%d_%m_%Y %H:%M:%S"))
+    def update_time(self, label_time: QLabel, timenow):
+        label_time.setText(timenow().strftime("%d_%m_%Y %H:%M:%S"))
 
     def update_place(self, value: float, i: int):
         self.place[i] = value
 
 class TabTracking(QWidget):
-    def __init__(self):
+    def __init__(self, sattelites, timenow, place):
         super().__init__()
 
-        self.canvas = MplCanvas(self, width=5, height=4, dpi=100)
+        self.sattelites = sattelites
+        self.timenow = timenow
+        self.canvas = MplCanvas(self, width=90, height=90, dpi=100)
         #self.setCentralWidget(self.canvas)
-
+        self.clear_all()
         self.show()
 
+        self.old_selected_items = selected_items.copy()
+        self.plots = {}
+        self.fall_time = {}
+        self.text = {}
+        self.old_scatter = {}
+        self.place = place
+        self.old_place = place.copy()
+        
         # Setup a timer to trigger the redraw by calling update_plot.
         self.timer = QtCore.QTimer()
-        self.timer.setInterval(100)
+        self.timer.setInterval(1000)
         self.timer.timeout.connect(self.update_plot)
         self.timer.start()
+        vbox = QVBoxLayout()
+        vbox.addWidget(self.canvas)
+
+        self.setLayout(vbox)
 
     def update_plot(self):
-        # Drop off the first y element, append a new one.
-        #self.ydata = self.ydata[1:] + [random.randint(0, 10)]
-        #self.canvas.axes.cla()  # Clear the canvas.
-        #self.canvas.axes.plot(self.xdata, self.ydata, 'r')
-        # Trigger the canvas to update and redraw.
+        for i in selected_items:
+            if (self.timenow() >= self.fall_time.get(i, self.timenow() - timedelta(days=1)) or self.old_place != self.place) and color.get(i) != None:
+                if(self.plots.get(i) != None):
+                    for j in self.plots.get(i):
+                        j.remove()
+                    self.plots[i] = None
+                observers = self.sattelites[i].get_next_observers(horizon = HORIZON, max_angle = MAX_ANGLE, delta_seconds = DELTA_SECONDS)
+                self.fall_time[i] = observers[2]
+                self.plots[i] = self.ax.plot(observers[0], observers[1], label=i, color=color.get(i))
+                if(self.text.get(i) != None):
+                    self.text.get(i).remove()
+                    self.text[i] = None
+                if(len(observers[0]) > 0):
+                    self.text[i] = self.ax.text(observers[0][0],observers[1][0],i, fontsize=12, backgroundcolor = (0.8,0.8,0.9,0.7))
+            
+            if(self.old_scatter.get(i) != None):
+                self.old_scatter.get(i).remove()
+                self.old_scatter[i] = None
+            k = self.sattelites.get(i).get_observer()
+            self.old_scatter[i] = self.ax.scatter(k[0], k[1], c = color.get(i), alpha=0.5)
+                
+        
+        if self.old_place != self.place:
+            self.old_place = self.place.copy()
+        
+
+        for i in self.old_selected_items - selected_items:
+            for j in self.plots.get(i):
+                j.remove()
+            self.fall_time[i] = self.timenow()
+            self.plots[i] = None
+            if(self.text.get(i) != None):
+                self.text.get(i).remove()
+                self.text[i] = None
+            if(self.old_scatter.get(i) != None):
+                self.old_scatter.get(i).remove()
+                self.old_scatter[i] = None
+
+        self.old_selected_items = selected_items.copy()
+
+        self.ax.set_rmax(90)
+        self.ax.set_rmin(0)
         self.canvas.draw()
 
+
+    def clear_all(self):
+        self.canvas.figure.clear()
+        self.ax = self.canvas.figure.add_subplot(111, projection='polar')
+        self.ax.set_theta_zero_location('N')
+        self.ax.set_theta_direction(-1)
+        self.ax.set_rmax(90)
+        self.ax.set_rticks([0, 15, 30, 45, 60, 75, 90])  # Пример значений на радиусе
+        self.ax.grid(True)
 
 
 
 class MplCanvas(FigureCanvas):
-
     def __init__(self, parent=None, width=8, height=6, dpi=100):
         fig = plt.figure(figsize=(width, height), edgecolor='w')
-        self.plt = plt
         super(MplCanvas, self).__init__(fig)
 
 class TabWorldMap(QWidget):
@@ -215,7 +278,6 @@ class TabWorldMap(QWidget):
         vbox = QVBoxLayout()
 
         self.canvas = MplCanvas(self, width=8, height=6, dpi=100)
-
         self.clear_all()
 
         self.sattelites = sattelites
@@ -226,13 +288,12 @@ class TabWorldMap(QWidget):
         self.orbit_number = {}
         self.plotes = {}
         self.text = {}
-        self.color = {}
         self.color_iter = 0
 
         self.place_pos = place
         self.old_place_pos = place.copy()
         self.place = self.m.scatter(self.place_pos[0], self.place_pos[1], latlon=True, c = (1,0.5,0.5), alpha=0.5)
-        self.text_place = self.canvas.plt.text(self.place_pos[0]+6, self.place_pos[1]+6, "Your Place", fontsize=8, backgroundcolor = (1,1,1,0.7))
+        self.text_place = self.plt.text(self.place_pos[0]+6, self.place_pos[1]+6, "Your Place", fontsize=8, backgroundcolor = (1,1,1,0.7))
 
         self.update_plot()
 
@@ -249,7 +310,8 @@ class TabWorldMap(QWidget):
         self.canvas.figure.clear()
         self.m = Basemap(projection='cyl', resolution=None,
             llcrnrlat=-90, urcrnrlat=90,
-            llcrnrlon=-180, urcrnrlon=180, )
+            llcrnrlon=-180, urcrnrlon=180, ax=self.canvas.figure.gca())
+        self.plt = self.canvas.figure.gca()
         draw_map(self.m)
 
     def update_plot(self):
@@ -260,18 +322,18 @@ class TabWorldMap(QWidget):
             self.text_place.remove()
 
             self.place = self.m.scatter(self.place_pos[0], self.place_pos[1], latlon=True, c = (1,0.5,0.5), alpha=0.5)
-            self.text_place = self.canvas.plt.text(self.place_pos[0]+6, self.place_pos[1]+6, "Your Place", fontsize=8, backgroundcolor = (1,1,1,0.7))
+            self.text_place = self.plt.text(self.place_pos[0]+6, self.place_pos[1]+6, "Your Place", fontsize=8, backgroundcolor = (1,1,1,0.7))
             
             self.old_place_pos = self.place_pos.copy()
 
             update_place = True
         for i in selected_items:
-            if(self.color.get(i) == None):
-                self.color[i] = rainbow(self.color_iter, COLOR_VAL, COLOR_BRIGHTNESS, COLOR_UNBRIGHTNESS)
+            if(color.get(i) == None):
+                color[i] = rainbow(self.color_iter, COLOR_VAL, COLOR_BRIGHTNESS, COLOR_UNBRIGHTNESS)
                 self.color_iter += 1
                 if(self.color_iter >= COLOR_VAL*(1/COLOR_UNBRIGHTNESS)*(1/(COLOR_BRIGHTNESS-COLOR_UNBRIGHTNESS))):
                     self.color_iter = 0
-            col = self.color.get(i)
+            col = color.get(i)
 
             if(self.orbit_number.get(i) != self.sattelites[i].get_orbit_number()):
                 self.orbit_number[i] = self.sattelites[i].get_orbit_number()
@@ -295,7 +357,7 @@ class TabWorldMap(QWidget):
                 self.text.get(i).remove()
                 self.text[i] = None
             x, y = self.m(k[0], k[1])
-            self.text[i] = self.canvas.plt.text(x+6, y+6, i, fontsize=12, backgroundcolor = (0.8,0.8,0.9,0.7))
+            self.text[i] = self.plt.text(x+6, y+6, i, fontsize=12, backgroundcolor = (0.8,0.8,0.9,0.7))
 
             if(update_place):
                 self.sattelites[i].update_place(self.place_pos)
@@ -369,9 +431,9 @@ def rainbow(iter, speed, brightness, unbrightness):
     to_formul = lambda i, k: min(1, max(2*(k(i) > 1) + k(i)*(1-2*(k(i) > 1)), 0) * 2)
     return (to_formul(iter, r)*(brightness - unbrightness*big_iter) + big_iter*unbrightness, to_formul(iter, g)*(brightness - unbrightness*big_iter) + big_iter*unbrightness, to_formul(iter, b)*(brightness - unbrightness*big_iter) + big_iter*unbrightness)
 
-def window(sattelites):
+def window(sattelite, timenow):
     app = QApplication(sys.argv)
-    window = MainWindow(sattelites=sattelites)
+    window = MainWindow(sattelites=sattelite, timenow=timenow)
     window.show()
     sys.exit(app.exec_())
 

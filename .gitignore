@@ -4,3 +4,4 @@ tle
 .idea
 __pycache__
 interface/__pycache__
+*.DS_Store
