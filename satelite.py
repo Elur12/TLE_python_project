@@ -4,7 +4,7 @@ from datetime import datetime, UTC, timedelta
 import requests
 import os
 from dataclasses import dataclass
-
+import pickle as json
 import interface.window as win
 
 
@@ -24,7 +24,38 @@ def timenow(start_time: datetime = datetime.now(UTC), use_speed: bool = False):
         return datetime.now(UTC)
 
 
-SPEED = 20
+
+def save_to_json(**kwargs):
+    data = {}
+    create_folder(os.path.dirname(os.path.abspath(__file__)), 'data')
+    try:
+        with open(os.path.dirname(os.path.abspath(__file__)) + '/data/' + 'data.json', 'rb') as file:
+            data = json.load(file)
+    except:
+        print("creating data file")
+    with open(os.path.dirname(os.path.abspath(__file__)) + '/data/' + 'data.json', 'wb') as file:
+        for i in kwargs.keys():
+            data[i] = kwargs[i]
+        json.dump(data, file)
+
+def load_from_json(*args):
+    data = {}
+    set_args = set(args)
+    result = [0]*len(args)
+    try:
+        with open(os.path.dirname(os.path.abspath(__file__)) + '/data/' + 'data.json', 'rb') as file:
+            data = json.load(file)
+            set_args = set(data.keys()) & set_args
+            for i in range(len(args)):
+                if(args[i] in set_args):
+                    result[i]=data[args[i]]
+    except:
+        save_to_json(color = {}, selected_items = (), place = [0,0,0], SPEED = SPEED, TLE_URLS = TLE_URLS, DELTA_TLE_HOURS = DELTA_TLE_HOURS, LENGHT_PASSES = LENGHT_PASSES, COLOR_BRIGHTNESS = win.COLOR_BRIGHTNESS, COLOR_UNBRIGHTNESS = win.COLOR_UNBRIGHTNESS, COLOR_VAL = win.COLOR_VAL, COVERAGE_LON = win.COVERAGE_LON, MAX_ANGLE = win.MAX_ANGLE, HORIZON = win.HORIZON, DELTA_SECONDS = win.DELTA_SECONDS)
+        print("No file")
+    return result
+
+
+SPEED = 1
 
 TLE_URLS = ('http://www.celestrak.com/NORAD/elements/active.txt',
             'http://celestrak.com/NORAD/elements/weather.txt',
@@ -106,8 +137,8 @@ class Satelite():
         return self.orb.get_orbit_number(timenow(self.start_time, use_speed=True))
 
     @TLE
-    def get_observer(self):
-        observer = self.orb.get_observer_look(timenow(use_speed=True), self.my_place.lon, self.my_place.lat, self.my_place.alt)
+    def get_observer(self, time: datetime = timenow(use_speed=True)):
+        observer = self.orb.get_observer_look(time, self.my_place.lon, self.my_place.lat, self.my_place.alt)
         return ((observer[0]/360) * 2 * 3.14, 90 - observer[1])
 
     @TLE
@@ -190,12 +221,13 @@ def create_folder(workspace, folder):
 
 if __name__ == "__main__":
     update_date = update_tle(TLE_URLS)
+    my_place = load_from_json('place')[0]
     for i in satelite_line.keys():
         try:
-            satelites.update({i:Satelite(i, place(55, 37, 0.1))})
+            satelites.update({i:Satelite(i, place(my_place[0], my_place[1], my_place[2]))})
         except:
             print("Sattelite: ", i, ", doesn't work")
     try:
-        win.window(satelites, lambda : timenow(use_speed=True))
+        win.window(satelites, lambda : timenow(use_speed=True), save_to_json, load_from_json('place')[0], load_from_json('selected_items')[0], load_from_json('color')[0])
     except:
         print("GOODBYE")

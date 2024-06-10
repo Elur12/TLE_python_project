@@ -20,9 +20,11 @@ COLOR_UNBRIGHTNESS = 0.5
 
 COVERAGE_LON = 20
 
-MAX_ANGLE = 10
+MAX_ANGLE = 30
 HORIZON = 0
 DELTA_SECONDS = 0.5
+
+save_to_json = None
 
 def draw_map(m, scale=0.2):
     # draw a shaded-relief image
@@ -42,16 +44,16 @@ def draw_map(m, scale=0.2):
         line.set(linestyle='-', alpha=0.3, color='w')
 
 
-selected_items = set()
-color = {}
+
 
 class MainWindow(QDialog):
 
     def message(self, item):
         if(item.checkState() == QtCore.Qt.CheckState.Checked):
-            selected_items.add(item.text())
+            self.selected_items.add(item.text())
         else:
-            selected_items.discard(item.text())
+            self.selected_items.discard(item.text())
+        self.save_to_json(selected_items = self.selected_items)
 
     def search(self, s):
         # Clear current selection.
@@ -67,14 +69,15 @@ class MainWindow(QDialog):
             for item in matching_items:
                 item.setSelected(True)
 
-    def __init__(self, sattelites, timenow):
+    def __init__(self, sattelites, timenow, save_to_json, place, selected_items, color):
         super().__init__()
 
         self.setWindowTitle("Трекинг спутников на базе TLE данных")
         self.setMinimumSize(1280, 720)
         self.resize(630, 300)
 
-        self.place = [0, 0, 0]
+        self.place = place
+        self.save_to_json = save_to_json
 
         right_frame = QFrame()
         right_frame.setFrameShape(QFrame.StyledPanel)
@@ -82,6 +85,8 @@ class MainWindow(QDialog):
         left_frame = QFrame()
         left_frame.setFrameShape(QFrame.StyledPanel)
 
+        self.selected_items = set(selected_items)
+        self.color = dict(color)
 
         label_updated = QLabel("updated time: ")
         label_time = QLabel("test", right_frame)
@@ -98,6 +103,7 @@ class MainWindow(QDialog):
         doubleSpinBox.setDecimals(6)
         doubleSpinBox.setMinimum(-90.0)
         doubleSpinBox.setMaximum(90.0)
+        doubleSpinBox.setValue(place[1])
         doubleSpinBox.valueChanged.connect(lambda x: self.update_place(x, 1))
 
         doubleSpinBox_2 = QtWidgets.QDoubleSpinBox()
@@ -105,11 +111,13 @@ class MainWindow(QDialog):
         doubleSpinBox_2.setDecimals(6)
         doubleSpinBox_2.setMinimum(-180.0)
         doubleSpinBox_2.setMaximum(180.0)
+        doubleSpinBox_2.setValue(place[0])
         doubleSpinBox_2.valueChanged.connect(lambda x: self.update_place(x, 0))
 
         doubleSpinBox_3 = QtWidgets.QDoubleSpinBox()
         doubleSpinBox_3.setGeometry(QtCore.QRect(230, 40, 161, 24))
         doubleSpinBox_3.setDecimals(3)
+        doubleSpinBox_3.setValue(place[2])
         doubleSpinBox_3.valueChanged.connect(lambda x: self.update_place(x, 2))
 
         self.table = QTableWidget()
@@ -122,15 +130,18 @@ class MainWindow(QDialog):
         for i in range(len(keys)):
             item = QTableWidgetItem(keys[i])
             item.setFlags(QtCore.Qt.ItemFlag.ItemIsUserCheckable | QtCore.Qt.ItemFlag.ItemIsEnabled)
-            item.setCheckState(QtCore.Qt.CheckState.Unchecked)
+            if(keys[i] in self.selected_items):
+                item.setCheckState(QtCore.Qt.CheckState.Checked)
+            else:
+                item.setCheckState(QtCore.Qt.CheckState.Unchecked)
             self.table.setItem(i, 0, item)
         self.table.itemChanged.connect(self.message)
 
 
         tab_widget = QTabWidget()
 
-        tab_widget.addTab(TabTracking(sattelites=sattelites, timenow=timenow, place=self.place), "Tracking")
-        tab_widget.addTab(TabWorldMap(sattelites=sattelites, place=self.place), "World Map")
+        tab_widget.addTab(TabTracking(sattelites=sattelites, timenow=timenow, place=self.place, selected_items=self.selected_items, color=self.color), "Tracking")
+        tab_widget.addTab(TabWorldMap(sattelites=sattelites, place=self.place, selected_items=self.selected_items, color=self.color, save_to_json=save_to_json), "World Map")
         tab_widget.addTab(TabSchedule(), "Schedule")
         tab_widget.addTab(TabSettings(), "Settings")
         
@@ -180,11 +191,14 @@ class MainWindow(QDialog):
 
     def update_place(self, value: float, i: int):
         self.place[i] = value
+        self.save_to_json(place = self.place)
 
 class TabTracking(QWidget):
-    def __init__(self, sattelites, timenow, place):
+    def __init__(self, sattelites, timenow, place, selected_items, color):
         super().__init__()
 
+        self.color = color
+        self.selected_items = selected_items
         self.sattelites = sattelites
         self.timenow = timenow
         self.canvas = MplCanvas(self, width=90, height=90, dpi=100)
@@ -192,7 +206,7 @@ class TabTracking(QWidget):
         self.clear_all()
         self.show()
 
-        self.old_selected_items = selected_items.copy()
+        self.old_selected_items = self.selected_items.copy()
         self.plots = {}
         self.fall_time = {}
         self.text = {}
@@ -211,15 +225,15 @@ class TabTracking(QWidget):
         self.setLayout(vbox)
 
     def update_plot(self):
-        for i in selected_items:
-            if (self.timenow() >= self.fall_time.get(i, self.timenow() - timedelta(days=1)) or self.old_place != self.place) and color.get(i) != None:
+        for i in self.selected_items:
+            if (self.timenow() >= self.fall_time.get(i, self.timenow() - timedelta(days=1)) or self.old_place != self.place) and self.color.get(i) != None:
                 if(self.plots.get(i) != None):
                     for j in self.plots.get(i):
                         j.remove()
                     self.plots[i] = None
                 observers = self.sattelites[i].get_next_observers(horizon = HORIZON, max_angle = MAX_ANGLE, delta_seconds = DELTA_SECONDS)
                 self.fall_time[i] = observers[2]
-                self.plots[i] = self.ax.plot(observers[0], observers[1], label=i, color=color.get(i))
+                self.plots[i] = self.ax.plot(observers[0], observers[1], label=i, color=self.color.get(i))
                 if(self.text.get(i) != None):
                     self.text.get(i).remove()
                     self.text[i] = None
@@ -230,14 +244,14 @@ class TabTracking(QWidget):
                 self.old_scatter.get(i).remove()
                 self.old_scatter[i] = None
             k = self.sattelites.get(i).get_observer()
-            self.old_scatter[i] = self.ax.scatter(k[0], k[1], c = color.get(i), alpha=0.5)
+            self.old_scatter[i] = self.ax.scatter(k[0], k[1], color = self.color.get(i), alpha=0.5)
                 
         
         if self.old_place != self.place:
             self.old_place = self.place.copy()
         
 
-        for i in self.old_selected_items - selected_items:
+        for i in self.old_selected_items - self.selected_items:
             for j in self.plots.get(i):
                 j.remove()
             self.fall_time[i] = self.timenow()
@@ -249,7 +263,7 @@ class TabTracking(QWidget):
                 self.old_scatter.get(i).remove()
                 self.old_scatter[i] = None
 
-        self.old_selected_items = selected_items.copy()
+        self.old_selected_items = self.selected_items.copy()
 
         self.ax.set_rmax(90)
         self.ax.set_rmin(0)
@@ -273,16 +287,20 @@ class MplCanvas(FigureCanvas):
         super(MplCanvas, self).__init__(fig)
 
 class TabWorldMap(QWidget):
-    def __init__(self, sattelites, place):
+    def __init__(self, sattelites, place, selected_items, color, save_to_json):
         super().__init__()
         vbox = QVBoxLayout()
+
+        self.color = color
+        self.selected_items = selected_items
+        self.save_to_json = save_to_json
 
         self.canvas = MplCanvas(self, width=8, height=6, dpi=100)
         self.clear_all()
 
         self.sattelites = sattelites
 
-        self.old_selected_items = selected_items.copy()
+        self.old_selected_items = self.selected_items.copy()
 
         self.old_scatter = {}
         self.orbit_number = {}
@@ -292,7 +310,7 @@ class TabWorldMap(QWidget):
 
         self.place_pos = place
         self.old_place_pos = place.copy()
-        self.place = self.m.scatter(self.place_pos[0], self.place_pos[1], latlon=True, c = (1,0.5,0.5), alpha=0.5)
+        self.place = self.m.scatter(self.place_pos[0], self.place_pos[1], latlon=True, color =(1,0.5,0.5), alpha=0.5)
         self.text_place = self.plt.text(self.place_pos[0]+6, self.place_pos[1]+6, "Your Place", fontsize=8, backgroundcolor = (1,1,1,0.7))
 
         self.update_plot()
@@ -321,19 +339,20 @@ class TabWorldMap(QWidget):
             self.place.remove()
             self.text_place.remove()
 
-            self.place = self.m.scatter(self.place_pos[0], self.place_pos[1], latlon=True, c = (1,0.5,0.5), alpha=0.5)
+            self.place = self.m.scatter(self.place_pos[0], self.place_pos[1], latlon=True, color =(1,0.5,0.5), alpha=0.5)
             self.text_place = self.plt.text(self.place_pos[0]+6, self.place_pos[1]+6, "Your Place", fontsize=8, backgroundcolor = (1,1,1,0.7))
             
             self.old_place_pos = self.place_pos.copy()
 
             update_place = True
-        for i in selected_items:
-            if(color.get(i) == None):
-                color[i] = rainbow(self.color_iter, COLOR_VAL, COLOR_BRIGHTNESS, COLOR_UNBRIGHTNESS)
+        for i in self.selected_items:
+            if(self.color.get(i) == None):
+                self.color[i] = rainbow(self.color_iter, COLOR_VAL, COLOR_BRIGHTNESS, COLOR_UNBRIGHTNESS)
+                self.save_to_json(color = self.color)
                 self.color_iter += 1
                 if(self.color_iter >= COLOR_VAL*(1/COLOR_UNBRIGHTNESS)*(1/(COLOR_BRIGHTNESS-COLOR_UNBRIGHTNESS))):
                     self.color_iter = 0
-            col = color.get(i)
+            col = self.color.get(i)
 
             if(self.orbit_number.get(i) != self.sattelites[i].get_orbit_number()):
                 self.orbit_number[i] = self.sattelites[i].get_orbit_number()
@@ -345,14 +364,14 @@ class TabWorldMap(QWidget):
                 self.plotes[i] = []
                 
                 for o in l_old:
-                    j,  = self.m.plot(o[0], o[1], c = col)
+                    j,  = self.m.plot(o[0], o[1], color = col)
                     self.plotes[i].append(j)
 
             if(self.old_scatter.get(i) != None):
                 self.old_scatter.get(i).remove()
                 self.old_scatter[i] = None
             k = self.sattelites.get(i).get_location()
-            self.old_scatter[i] = self.m.scatter(k[0], k[1], latlon=True, c = col, alpha=0.5)
+            self.old_scatter[i] = self.m.scatter(k[0], k[1], latlon=True, color = col, alpha=0.5)
             if(self.text.get(i) != None):
                 self.text.get(i).remove()
                 self.text[i] = None
@@ -362,7 +381,7 @@ class TabWorldMap(QWidget):
             if(update_place):
                 self.sattelites[i].update_place(self.place_pos)
 
-        for i in self.old_selected_items - selected_items:
+        for i in self.old_selected_items - self.selected_items:
             self.old_scatter.get(i).remove()
             for j in self.plotes.get(i):
                 j.remove()
@@ -372,10 +391,10 @@ class TabWorldMap(QWidget):
             self.text.get(i).remove()
             self.text[i] = None
         
-        for i in selected_items - self.old_selected_items:
+        for i in self.selected_items - self.old_selected_items:
             self.sattelites[i].update_place(self.place_pos)
 
-        self.old_selected_items = selected_items.copy()
+        self.old_selected_items = self.selected_items.copy()
 
         self.canvas.draw()
 
@@ -431,9 +450,10 @@ def rainbow(iter, speed, brightness, unbrightness):
     to_formul = lambda i, k: min(1, max(2*(k(i) > 1) + k(i)*(1-2*(k(i) > 1)), 0) * 2)
     return (to_formul(iter, r)*(brightness - unbrightness*big_iter) + big_iter*unbrightness, to_formul(iter, g)*(brightness - unbrightness*big_iter) + big_iter*unbrightness, to_formul(iter, b)*(brightness - unbrightness*big_iter) + big_iter*unbrightness)
 
-def window(sattelite, timenow):
+def window(sattelite, timenow, save_to_json, place, selected_items, color):
+    save_to_json = save_to_json
     app = QApplication(sys.argv)
-    window = MainWindow(sattelites=sattelite, timenow=timenow)
+    window = MainWindow(sattelites=sattelite, timenow=timenow, save_to_json=save_to_json, place = place, selected_items = selected_items, color=color)
     window.show()
     sys.exit(app.exec_())
 
