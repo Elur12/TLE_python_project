@@ -1,12 +1,14 @@
 import numpy as np
 import matplotlib.pyplot as plt
 from mpl_toolkits.basemap import Basemap
-from datetime import datetime, UTC, timedelta
+from datetime import datetime, timedelta
+# from datetime import UTC
 import matplotlib
 from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg as FigureCanvas
-from PyQt5 import QtWidgets, uic, QtCore, Qt, QtWidgets
-from PyQt5.QtWidgets import QApplication, QMainWindow, QWidget, QPushButton, QLabel, QSlider, QVBoxLayout, QScrollArea, \
-    QTabWidget, QDialog, QTableWidget, QHBoxLayout, QSplitter, QTextEdit, QFrame, QCheckBox, QTableWidgetItem, QLineEdit
+from PyQt5 import QtCore, Qt, QtWidgets
+from PyQt5.QtWidgets import QApplication, QWidget, QPushButton, QLabel, QVBoxLayout, \
+    QTabWidget, QDialog, QTableWidget, QHBoxLayout, QSplitter, QFrame, QTableWidgetItem, \
+    QLineEdit, QHeaderView
 import sys
 from itertools import chain
 from PyQt5.QtCore import Qt
@@ -125,8 +127,9 @@ class MainWindow(QDialog):
         self.table = QTableWidget()
         self.table.setColumnCount(1)
         self.table.setRowCount(len(keys))
-        self.table.horizontalHeader().setStretchLastSection(True)
-        self.table.setHorizontalHeaderLabels(["Satellites","Satellites"])
+        header = self.table.horizontalHeader()
+        header.setSectionResizeMode(0, QHeaderView.ResizeToContents)
+        self.table.setHorizontalHeaderLabels(["Satellites", "Satellites"])
 
         # Расстановка спутников
         for i in range(len(keys)):
@@ -142,11 +145,14 @@ class MainWindow(QDialog):
 
         tab_widget = QTabWidget()
 
+        tab_schedule = TabSchedule(sattelites=sattelites, selected_items=self.selected_items)
+
         tab_widget.addTab(TabTracking(sattelites=sattelites, timenow=timenow, place=self.place, selected_items=self.selected_items, color=self.color), "Tracking")
         tab_widget.addTab(TabWorldMap(sattelites=sattelites, place=self.place, selected_items=self.selected_items, color=self.color, save_to_json=save_to_json, color_iter=color_iter), "World Map")
-        tab_widget.addTab(TabSchedule(), "Schedule")
+        tab_widget.addTab(tab_schedule, "Schedule")
         tab_widget.addTab(TabSettings(), "Settings")
-        
+
+        update_button.clicked.connect(lambda x: tab_schedule.update_plot())
 
         vbox_left = QVBoxLayout()
         vbox_right = QVBoxLayout()
@@ -189,7 +195,7 @@ class MainWindow(QDialog):
 
 
     def update_time(self, label_time: QLabel, timenow):
-        label_time.setText(timenow().strftime("%d_%m_%Y %H:%M:%S"))
+        label_time.setText(timenow().strftime("%d.%m.%Y %H:%M:%S"))
 
     def update_place(self, value: float, i: int):
         self.place[i] = value
@@ -401,20 +407,79 @@ class TabWorldMap(QWidget):
         self.canvas.draw()
 
 class TabSchedule(QWidget):
-    def __init__(self):
+    def __init__(self, sattelites, selected_items):
         super().__init__()
+
+        self.sattelites = sattelites
+        self.selected_items = selected_items
 
         vbox = QVBoxLayout()
 
-        table = QTableWidget()
-        table.setColumnCount(4)
-        table.setRowCount(1)
+        label = QLabel("Click Update button to update the table.")
 
-        table.setHorizontalHeaderLabels(["Name", "Time of start", "Time of stop", "Apogey"])
+        self.table = QTableWidget()
+        self.table.setColumnCount(4)
+        self.table.setRowCount(len(self.selected_items))
 
-        vbox.addWidget(table)
+        # Заполнение таблицы при запуске
+        list_of_selected_items = list(self.selected_items)
+        count_of_list = len(list_of_selected_items)
+        self.table.setRowCount(count_of_list)
+        for i in range(count_of_list):
+            name = list_of_selected_items[i]
+            name_item = QTableWidgetItem(name)
+            self.table.setItem(i, 0, name_item)
+
+            next_passes = self.sattelites[name].get_next_passes()
+
+            time_of_start = next_passes[0][0]
+            time_of_start_item = QTableWidgetItem(time_of_start.strftime("%d.%m.%Y %H:%M:%S"))
+            self.table.setItem(i, 1, time_of_start_item)
+
+            time_of_end = next_passes[0][1]
+            time_of_end_item = QTableWidgetItem(time_of_end.strftime("%d.%m.%Y %H:%M:%S"))
+            self.table.setItem(i, 2, time_of_end_item)
+
+            apogee = self.sattelites[name].get_observer(next_passes[0][2])[1]
+            apogee_item = QTableWidgetItem(str(round(apogee, 1)))
+            self.table.setItem(i, 3, apogee_item)
+
+        header = self.table.horizontalHeader()
+        header.setSectionResizeMode(0, QHeaderView.ResizeToContents)
+        header.setSectionResizeMode(1, QHeaderView.ResizeToContents)
+        header.setSectionResizeMode(2, QHeaderView.ResizeToContents)
+        header.setSectionResizeMode(3, QHeaderView.ResizeToContents)
+
+        self.table.setHorizontalHeaderLabels(["Name", "Time of start", "Time of stop", "Apogee"])
+
+        vbox.addWidget(label)
+        vbox.addWidget(self.table)
 
         self.setLayout(vbox)
+
+    def update_plot(self):
+        list_of_selected_items = list(self.selected_items)
+        count_of_list = len(list_of_selected_items)
+        self.table.setRowCount(count_of_list)
+        for i in range(count_of_list):
+            name = list_of_selected_items[i]
+            name_item = QTableWidgetItem(name)
+            self.table.setItem(i, 0, name_item)
+
+            next_passes = self.sattelites[name].get_next_passes()
+
+            time_of_start = next_passes[0][0]
+            time_of_start_item = QTableWidgetItem(time_of_start.strftime("%d.%m.%Y %H:%M:%S"))
+            self.table.setItem(i, 1, time_of_start_item)
+
+            time_of_end = next_passes[0][1]
+            time_of_end_item = QTableWidgetItem(time_of_end.strftime("%d.%m.%Y %H:%M:%S"))
+            self.table.setItem(i, 2, time_of_end_item)
+            
+            apogee = self.sattelites[name].get_observer(time=next_passes[0][2])[1]
+            apogee_item = QTableWidgetItem(str(round(apogee, 1)))
+            self.table.setItem(i, 3, apogee_item)
+
 
 class TabSettings(QWidget):
     def __init__(self):
