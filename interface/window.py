@@ -65,11 +65,13 @@ class MainWindow(QDialog):
         if matching_items:
             # We have found something.
             item = matching_items[0]  # Take the first.
+            row = item.row() + 10
+            item = self.table.item(row, 0)
             self.table.setCurrentItem(item)
             for item in matching_items:
                 item.setSelected(True)
 
-    def __init__(self, sattelites, timenow, save_to_json, place, selected_items, color):
+    def __init__(self, sattelites, timenow, save_to_json, place, selected_items, color, color_iter):
         super().__init__()
 
         self.setWindowTitle("Трекинг спутников на базе TLE данных")
@@ -124,7 +126,7 @@ class MainWindow(QDialog):
         self.table.setColumnCount(1)
         self.table.setRowCount(len(keys))
         self.table.horizontalHeader().setStretchLastSection(True)
-        self.table.setHorizontalHeaderLabels(["check","Satellites"])
+        self.table.setHorizontalHeaderLabels(["Satellites","Satellites"])
 
         # Расстановка спутников
         for i in range(len(keys)):
@@ -141,7 +143,7 @@ class MainWindow(QDialog):
         tab_widget = QTabWidget()
 
         tab_widget.addTab(TabTracking(sattelites=sattelites, timenow=timenow, place=self.place, selected_items=self.selected_items, color=self.color), "Tracking")
-        tab_widget.addTab(TabWorldMap(sattelites=sattelites, place=self.place, selected_items=self.selected_items, color=self.color, save_to_json=save_to_json), "World Map")
+        tab_widget.addTab(TabWorldMap(sattelites=sattelites, place=self.place, selected_items=self.selected_items, color=self.color, save_to_json=save_to_json, color_iter=color_iter), "World Map")
         tab_widget.addTab(TabSchedule(), "Schedule")
         tab_widget.addTab(TabSettings(), "Settings")
         
@@ -287,7 +289,7 @@ class MplCanvas(FigureCanvas):
         super(MplCanvas, self).__init__(fig)
 
 class TabWorldMap(QWidget):
-    def __init__(self, sattelites, place, selected_items, color, save_to_json):
+    def __init__(self, sattelites, place, selected_items, color, save_to_json, color_iter):
         super().__init__()
         vbox = QVBoxLayout()
 
@@ -306,7 +308,7 @@ class TabWorldMap(QWidget):
         self.orbit_number = {}
         self.plotes = {}
         self.text = {}
-        self.color_iter = 0
+        self.color_iter = color_iter
 
         self.place_pos = place
         self.old_place_pos = place.copy()
@@ -348,8 +350,8 @@ class TabWorldMap(QWidget):
         for i in self.selected_items:
             if(self.color.get(i) == None):
                 self.color[i] = rainbow(self.color_iter, COLOR_VAL, COLOR_BRIGHTNESS, COLOR_UNBRIGHTNESS)
-                self.save_to_json(color = self.color)
                 self.color_iter += 1
+                self.save_to_json(color = self.color, color_iter = self.color_iter)
                 if(self.color_iter >= COLOR_VAL*(1/COLOR_UNBRIGHTNESS)*(1/(COLOR_BRIGHTNESS-COLOR_UNBRIGHTNESS))):
                     self.color_iter = 0
             col = self.color.get(i)
@@ -450,10 +452,10 @@ def rainbow(iter, speed, brightness, unbrightness):
     to_formul = lambda i, k: min(1, max(2*(k(i) > 1) + k(i)*(1-2*(k(i) > 1)), 0) * 2)
     return (to_formul(iter, r)*(brightness - unbrightness*big_iter) + big_iter*unbrightness, to_formul(iter, g)*(brightness - unbrightness*big_iter) + big_iter*unbrightness, to_formul(iter, b)*(brightness - unbrightness*big_iter) + big_iter*unbrightness)
 
-def window(sattelite, timenow, save_to_json, place, selected_items, color):
+def window(sattelite, timenow, save_to_json, place, selected_items, color, color_iter):
     save_to_json = save_to_json
     app = QApplication(sys.argv)
-    window = MainWindow(sattelites=sattelite, timenow=timenow, save_to_json=save_to_json, place = place, selected_items = selected_items, color=color)
+    window = MainWindow(sattelites=sattelite, timenow=timenow, save_to_json=save_to_json, place = place, selected_items = selected_items, color=color, color_iter=color_iter)
     window.show()
     sys.exit(app.exec_())
 

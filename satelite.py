@@ -50,8 +50,9 @@ def load_from_json(*args):
                 if(args[i] in set_args):
                     result[i]=data[args[i]]
     except:
-        save_to_json(color = {}, selected_items = (), place = [0,0,0], SPEED = SPEED, TLE_URLS = TLE_URLS, DELTA_TLE_HOURS = DELTA_TLE_HOURS, LENGHT_PASSES = LENGHT_PASSES, COLOR_BRIGHTNESS = win.COLOR_BRIGHTNESS, COLOR_UNBRIGHTNESS = win.COLOR_UNBRIGHTNESS, COLOR_VAL = win.COLOR_VAL, COVERAGE_LON = win.COVERAGE_LON, MAX_ANGLE = win.MAX_ANGLE, HORIZON = win.HORIZON, DELTA_SECONDS = win.DELTA_SECONDS)
+        save_to_json(color_iter = 0, color = {}, selected_items = (), place = [0,0,0], SPEED = SPEED, TLE_URLS = TLE_URLS, DELTA_TLE_HOURS = DELTA_TLE_HOURS, LENGHT_PASSES = LENGHT_PASSES, COLOR_BRIGHTNESS = win.COLOR_BRIGHTNESS, COLOR_UNBRIGHTNESS = win.COLOR_UNBRIGHTNESS, COLOR_VAL = win.COLOR_VAL, COVERAGE_LON = win.COVERAGE_LON, MAX_ANGLE = win.MAX_ANGLE, HORIZON = win.HORIZON, DELTA_SECONDS = win.DELTA_SECONDS)
         print("No file")
+        result = load_from_json(*args)
     return result
 
 
@@ -228,6 +229,6 @@ if __name__ == "__main__":
         except:
             print("Sattelite: ", i, ", doesn't work")
     try:
-        win.window(satelites, lambda : timenow(use_speed=True), save_to_json, load_from_json('place')[0], load_from_json('selected_items')[0], load_from_json('color')[0])
+        win.window(satelites, lambda : timenow(use_speed=True), save_to_json, load_from_json('place')[0], load_from_json('selected_items')[0], load_from_json('color')[0], load_from_json('color_iter')[0])
     except:
         print("GOODBYE")
