@@ -28,24 +28,41 @@ def timenow(start_time: datetime = start_time, use_speed: bool = False):
     
 
 def save_to_json(**kwargs):
+    global start_time
     data = {}
     create_folder(os.path.dirname(os.path.abspath(__file__)), 'data')
     try:
-        with open(os.path.dirname(os.path.abspath(__file__)) + '/data/' + 'data.json', 'rb') as file:
+        with open(os.path.dirname(os.path.abspath(__file__)) + '/data/' + 'data.pk', 'rb') as file:
             data = json.load(file)
     except:
         print("creating data file")
-    with open(os.path.dirname(os.path.abspath(__file__)) + '/data/' + 'data.json', 'wb') as file:
+    with open(os.path.dirname(os.path.abspath(__file__)) + '/data/' + 'data.pk', 'wb') as file:
+        up = False
         for i in kwargs.keys():
             data[i] = kwargs[i]
+            if i in ('SPEED', 'TLE_URLS', 'DELTA_TLE_HOURS', 'LENGHT_PASSES', 'COLOR_BRIGHTNESS', \
+                        'COLOR_UNBRIGHTNESS', 'COLOR_VAL', 'COVERAGE_LON', 'MAX_ANGLE', \
+                            'HORIZON', 'DELTA_SECONDS'):
+                up = True
         json.dump(data, file)
+    for i in kwargs.keys():
+        match i:
+            case "SPEED":
+                start_time = timenow()
+                print(start_time)
+                for i in satelites.keys():
+                    satelites[i].start_time = timenow()
+            case "DELTA_TLE_HOURS":
+                update_tle(TLE_URLS)
+    if(up):
+        update_settings()
 
 def load_from_json(*args):
     data = {}
     set_args = set(args)
     result = [0]*len(args)
     try:
-        with open(os.path.dirname(os.path.abspath(__file__)) + '/data/' + 'data.json', 'rb') as file:
+        with open(os.path.dirname(os.path.abspath(__file__)) + '/data/' + 'data.pk', 'rb') as file:
             data = json.load(file)
             set_args = set(data.keys()) & set_args
             for i in range(len(args)):
@@ -58,9 +75,11 @@ def load_from_json(*args):
     return result
 
 
-SPEED = 100
 
-TLE_URLS = ('http://www.celestrak.com/NORAD/elements/active.txt',
+
+SPEED = 1
+
+TLE_URLS = ['http://www.celestrak.com/NORAD/elements/active.txt',
             'http://celestrak.com/NORAD/elements/weather.txt',
             'http://celestrak.com/NORAD/elements/resource.txt',
             'https://www.celestrak.com/NORAD/elements/cubesat.txt',
@@ -68,7 +87,7 @@ TLE_URLS = ('http://www.celestrak.com/NORAD/elements/active.txt',
             'https://www.celestrak.com/NORAD/elements/sarsat.txt',
             'https://www.celestrak.com/NORAD/elements/noaa.txt',
             'https://www.celestrak.com/NORAD/elements/amateur.txt',
-            'https://www.celestrak.com/NORAD/elements/engineering.txt')
+            'https://www.celestrak.com/NORAD/elements/engineering.txt']
 
 DELTA_TLE_HOURS = 24
 LENGHT_PASSES = 48
@@ -193,7 +212,7 @@ class Satelite():
     def update(self):
         self.orb = Orbital(self.name, line1=satelite_line[self.name][0], line2=satelite_line[self.name][1])
 
-def update_tle(urls) -> datetime:
+def update_tle(urls, all_update: bool = False) -> datetime:
     update = timenow() - timedelta(hours=DELTA_TLE_HOURS + 1)
     create_folder(os.path.dirname(os.path.abspath(__file__)), 'tle')
     for root, dirs, files in os.walk(os.path.dirname(os.path.abspath(__file__)) + '/tle'):  
@@ -204,7 +223,7 @@ def update_tle(urls) -> datetime:
             if(old_tle_date > update):
                 update = old_tle_date
     
-    if(timenow() - timedelta(hours=DELTA_TLE_HOURS) >= update):
+    if(timenow() - timedelta(hours=DELTA_TLE_HOURS) >= update or all_update):
         update = timenow()
         with open(os.path.dirname(os.path.abspath(__file__)) + '/tle/' + update.strftime("tle_%d_%m_%Y-%H:%M:%S.txt"), 'w') as file:
             for url in urls:
@@ -230,12 +249,21 @@ def create_folder(workspace, folder):
     else:
         print("folder exists {0}".format(path))
 
+def update_settings():
+    global SPEED, TLE_URLS, DELTA_TLE_HOURS, LENGHT_PASSES
+    SPEED, TLE_URLS, DELTA_TLE_HOURS, LENGHT_PASSES, win.COLOR_BRIGHTNESS, \
+        win.COLOR_UNBRIGHTNESS, win.COLOR_VAL, win.COVERAGE_LON, win.MAX_ANGLE, \
+            win.HORIZON, win.DELTA_SECONDS = load_from_json('SPEED', 'TLE_URLS', 'DELTA_TLE_HOURS', 'LENGHT_PASSES', 'COLOR_BRIGHTNESS', \
+                'COLOR_UNBRIGHTNESS', 'COLOR_VAL', 'COVERAGE_LON', 'MAX_ANGLE', \
+                    'HORIZON', 'DELTA_SECONDS')
+
 if __name__ == "__main__":
     update_date = update_tle(TLE_URLS)
     my_place = load_from_json('place')[0]
+    update_settings()
     for i in satelite_line.keys():
         try:
             satelites.update({i:Satelite(i, place(my_place[0], my_place[1], my_place[2]))})
         except:
             print("Satellite: ", i, ", doesn't work")
-    win.window(satelites, lambda : timenow(use_speed=True), save_to_json, load_from_json('place')[0], load_from_json('selected_items')[0], load_from_json('color')[0], load_from_json('color_iter')[0])
+    win.window(satelites, lambda : timenow(use_speed=True), load_from_json, save_to_json, load_from_json('place')[0], load_from_json('selected_items')[0], load_from_json('color')[0], load_from_json('color_iter')[0])
