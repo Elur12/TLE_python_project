@@ -1,30 +1,31 @@
 import pyorbital as por
 from pyorbital.orbital import Orbital
 from datetime import datetime, timedelta
-# from datetime import UTC
+from datetime import UTC
 import requests
 import os
 from dataclasses import dataclass
 import pickle as json
 import interface.window as win
 
-
+'''
+start_time = datetime.utcnow()
 #FOR PYTHON <3.12
 def timenow(start_time: datetime = datetime.utcnow(), use_speed: bool = False):
     if(use_speed):
         return start_time + (datetime.utcnow() - start_time) * SPEED
     else:
         return datetime.utcnow()
-
 '''
+
 #FOR PYTHON3.12
-def timenow(start_time: datetime = datetime.utcnow(), use_speed: bool = False):
+start_time = datetime.now(UTC)
+def timenow(start_time: datetime = start_time, use_speed: bool = False):
     if(use_speed):
-        return start_time + (datetime.utcnow() - start_time) * SPEED
+        return start_time + (datetime.now(UTC) - start_time) * SPEED
     else:
-        return datetime.utcnow()
-'''
-
+        return datetime.now(UTC)
+    
 
 def save_to_json(**kwargs):
     data = {}
@@ -57,7 +58,7 @@ def load_from_json(*args):
     return result
 
 
-SPEED = 1
+SPEED = 100
 
 TLE_URLS = ('http://www.celestrak.com/NORAD/elements/active.txt',
             'http://celestrak.com/NORAD/elements/weather.txt',
@@ -88,7 +89,7 @@ class place:
 def TLE(func):
     def wrapper(*args, **kwargs):
         global update_date
-        if(datetime.utcnow() - timedelta(hours=DELTA_TLE_HOURS) >= update_date):
+        if(timenow() - timedelta(hours=DELTA_TLE_HOURS) >= update_date):
             update_date = update_tle(TLE_URLS)
             for i in satelites.keys():
                 satelites[i].update()
@@ -139,22 +140,29 @@ class Satelite():
         return self.orb.get_orbit_number(timenow(self.start_time, use_speed=True))
 
     @TLE
-    def get_observer(self, time: datetime = timenow(use_speed=True)):
+    def get_observer(self, time: datetime = None):
+        if(time == None):
+            return self.observer(timenow(self.start_time, use_speed=True))
+        else:
+            return self.observer(time)
+
+    def observer(self, time: datetime):
         observer = self.orb.get_observer_look(time, self.my_place.lon, self.my_place.lat, self.my_place.alt)
-        return ((observer[0]/360) * 2 * 3.14, 90 - observer[1])
+        return ((observer[0]/360) * 2 * 3.14, observer[1])
 
     @TLE
     def get_next_observers(self, horizon = 0, max_angle = 60, delta_seconds = 0.5):
         passe = self.get_next_passes(horizon=horizon, max_angle=max_angle)
-        observers = [[],[], timenow(use_speed=True)]
+        observers = [[],[], timenow(self.start_time, use_speed=True), timenow(self.start_time, use_speed=True)]
         if(len(passe) > 0):
             passe = passe[0]
             now_time = passe[0]
             observers[2] = passe[1]
+            observers[3] = passe[0]
             while now_time < passe[1]:
                 observer = self.orb.get_observer_look(now_time, self.my_place.lon, self.my_place.lat, self.my_place.alt)
                 observers[0].append((observer[0]/360) * 2 * 3.14)
-                observers[1].append(90 - observer[1])
+                observers[1].append(observer[1])
                 now_time = now_time + timedelta(seconds=delta_seconds)
 
         return observers
@@ -162,7 +170,7 @@ class Satelite():
     
     @TLE
     def get_next_passes(self, horizon = 0, max_angle = 30):
-        passes = self.orb.get_next_passes(timenow(), LENGHT_PASSES, self.my_place.lon, self.my_place.lat, self.my_place.alt, horizon=horizon)
+        passes = self.orb.get_next_passes(timenow(self.start_time, use_speed=True), LENGHT_PASSES, self.my_place.lon, self.my_place.lat, self.my_place.alt, horizon=horizon)
         i = 0
         while i < len(passes):
             if(self.orb.get_observer_look(passes[i][2], self.my_place.lon, self.my_place.lat, self.my_place.alt)[1] < max_angle):
@@ -174,7 +182,7 @@ class Satelite():
 
     @TLE
     def get_positions(self):
-        return self.orb.get_position(self.timenow(), normalize=False)
+        return self.orb.get_position(self.timenow(self.start_time, use_speed=True), normalize=False)
 
     def update_place(self, my_place):
         if(type(my_place) != place):
@@ -191,7 +199,7 @@ def update_tle(urls) -> datetime:
     for root, dirs, files in os.walk(os.path.dirname(os.path.abspath(__file__)) + '/tle'):  
         for filename in files:
 
-            old_tle_date = datetime.strptime(filename, "tle_%d_%m_%Y-%H:%M:%S.txt")
+            old_tle_date = datetime.strptime(filename, "tle_%d_%m_%Y-%H:%M:%S.txt").replace(tzinfo=UTC)
             
             if(old_tle_date > update):
                 update = old_tle_date

@@ -217,6 +217,7 @@ class TabTracking(QWidget):
         self.old_selected_items = self.selected_items.copy()
         self.plots = {}
         self.fall_time = {}
+        self.start_time = {}
         self.text = {}
         self.old_scatter = {}
         self.place = place
@@ -241,6 +242,7 @@ class TabTracking(QWidget):
                     self.plots[i] = None
                 observers = self.sattelites[i].get_next_observers(horizon = HORIZON, max_angle = MAX_ANGLE, delta_seconds = DELTA_SECONDS)
                 self.fall_time[i] = observers[2]
+                self.start_time[i] = observers[3]
                 self.plots[i] = self.ax.plot(observers[0], observers[1], label=i, color=self.color.get(i))
                 if(self.text.get(i) != None):
                     self.text.get(i).remove()
@@ -248,11 +250,20 @@ class TabTracking(QWidget):
                 if(len(observers[0]) > 0):
                     self.text[i] = self.ax.text(observers[0][0],observers[1][0],i, fontsize=12, backgroundcolor = (0.8,0.8,0.9,0.7))
             
-            if(self.old_scatter.get(i) != None):
+            if(self.start_time.get(i, self.timenow() + timedelta(days=1)) <= self.timenow() and self.timenow() <= self.fall_time.get(i, self.timenow() - timedelta(days=1))):
+                k = self.sattelites.get(i).get_observer()
+                if(self.old_scatter.get(i) != None):
+                    self.old_scatter.get(i).remove()
+                    self.old_scatter[i] = None
+                self.old_scatter[i] = self.ax.scatter(k[0], k[1], color = self.color.get(i), alpha=0.5)
+
+                if(self.text.get(i) != None):
+                    self.text.get(i).remove()
+                    self.text[i] = None
+                self.text[i] = self.ax.text(k[0], k[1], i, fontsize=12)
+            elif(self.old_scatter.get(i) != None):
                 self.old_scatter.get(i).remove()
                 self.old_scatter[i] = None
-            k = self.sattelites.get(i).get_observer()
-            self.old_scatter[i] = self.ax.scatter(k[0], k[1], color = self.color.get(i), alpha=0.5)
                 
         
         if self.old_place != self.place:
@@ -273,8 +284,8 @@ class TabTracking(QWidget):
 
         self.old_selected_items = self.selected_items.copy()
 
-        self.ax.set_rmax(90)
-        self.ax.set_rmin(0)
+        self.ax.set_rmax(0)
+        self.ax.set_rmin(90)
         self.canvas.draw()
 
 
@@ -283,7 +294,8 @@ class TabTracking(QWidget):
         self.ax = self.canvas.figure.add_subplot(111, projection='polar')
         self.ax.set_theta_zero_location('N')
         self.ax.set_theta_direction(-1)
-        self.ax.set_rmax(90)
+        self.ax.set_rmax(0)
+        self.ax.set_rmin(90)
         self.ax.set_rticks([0, 15, 30, 45, 60, 75, 90])  # Пример значений на радиусе
         self.ax.grid(True)
 
@@ -422,27 +434,7 @@ class TabSchedule(QWidget):
         self.table.setRowCount(len(self.selected_items))
 
         # Заполнение таблицы при запуске
-        list_of_selected_items = list(self.selected_items)
-        count_of_list = len(list_of_selected_items)
-        self.table.setRowCount(count_of_list)
-        for i in range(count_of_list):
-            name = list_of_selected_items[i]
-            name_item = QTableWidgetItem(name)
-            self.table.setItem(i, 0, name_item)
-
-            next_passes = self.sattelites[name].get_next_passes()
-
-            time_of_start = next_passes[0][0]
-            time_of_start_item = QTableWidgetItem(time_of_start.strftime("%d.%m.%Y %H:%M:%S"))
-            self.table.setItem(i, 1, time_of_start_item)
-
-            time_of_end = next_passes[0][1]
-            time_of_end_item = QTableWidgetItem(time_of_end.strftime("%d.%m.%Y %H:%M:%S"))
-            self.table.setItem(i, 2, time_of_end_item)
-
-            apogee = self.sattelites[name].get_observer(next_passes[0][2])[1]
-            apogee_item = QTableWidgetItem(str(round(apogee, 1)))
-            self.table.setItem(i, 3, apogee_item)
+        self.update_plot()
 
         header = self.table.horizontalHeader()
         header.setSectionResizeMode(0, QHeaderView.ResizeToContents)
@@ -460,23 +452,30 @@ class TabSchedule(QWidget):
     def update_plot(self):
         list_of_selected_items = list(self.selected_items)
         count_of_list = len(list_of_selected_items)
-        self.table.setRowCount(count_of_list)
+        all_passes = []
         for i in range(count_of_list):
             name = list_of_selected_items[i]
+
+            next_passes = self.sattelites[name].get_next_passes()
+            for j in range(len(next_passes)):
+                next_passes[j] = (name, next_passes[j][0], next_passes[j][1], next_passes[j][2])
+            all_passes += next_passes
+        all_passes.sort(key=lambda x: x[1].timestamp())
+        self.table.setRowCount(len(all_passes))
+        for i in range(len(all_passes)):
+            name = all_passes[i][0]
             name_item = QTableWidgetItem(name)
             self.table.setItem(i, 0, name_item)
 
-            next_passes = self.sattelites[name].get_next_passes()
-
-            time_of_start = next_passes[0][0]
+            time_of_start = all_passes[i][1]
             time_of_start_item = QTableWidgetItem(time_of_start.strftime("%d.%m.%Y %H:%M:%S"))
             self.table.setItem(i, 1, time_of_start_item)
 
-            time_of_end = next_passes[0][1]
+            time_of_end = all_passes[i][2]
             time_of_end_item = QTableWidgetItem(time_of_end.strftime("%d.%m.%Y %H:%M:%S"))
             self.table.setItem(i, 2, time_of_end_item)
             
-            apogee = self.sattelites[name].get_observer(time=next_passes[0][2])[1]
+            apogee = self.sattelites[name].get_observer(time=all_passes[i][3])[1]
             apogee_item = QTableWidgetItem(str(round(apogee, 1)))
             self.table.setItem(i, 3, apogee_item)
 
