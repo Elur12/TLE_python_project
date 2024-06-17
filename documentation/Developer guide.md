@@ -1,4 +1,213 @@
-1. Архитектура программного обеспечения
-2. Структура каталогов
-3. Внешние источники данных
-4. Описание классов и методов
+## Содержание:
+1. [Требования к среде](#reqirements)
+2. [Архитектура программного обеспечения](#architecture)
+3. [Структура каталогов](#structure)
+4. [Внешние источники данных](#sources)
+5. [Описание классов и методов](#documentation)
+
+<h3 id="requirements">Требования к системе</h3>
+
+1. Операционная система: Windows 10 и позднее / MacOS X BigSure и позднее
+2. Наличие интернет-подключения
+2. Наличие установленного Python 3.12
+3. Наличие установленных библиотек
+
+<h3 id="architecture">Архитектура программного обеспечения</h3>
+
+<h3 id="structure">Структура каталогов</h3>
+
+* /data
+  * data.json
+* /documentation
+  * Developer guide.md
+  * User guide.md
+* /interface
+  * window.py
+    * class `MainWindow`
+    * class `TabTracking`
+    * class `TabWorldMap`
+    * class `TabSchedule`
+* /tle
+* README.md
+* requirements.txt
+* satelite.py
+  * class `place`
+  * class `Satelite`
+
+<h3 id="sources">Внешние источники данных</h3>
+
+Программа получает TLE-данные по заданным в настройках (вкладка `Settings`) ссылкам.
+По умолчанию набор ссылок выглядит следующим образом:
+```
+http://www.celestrak.com/NORAD/elements/active.txt
+http://celestrak.com/NORAD/elements/weather.txt
+http://celestrak.com/NORAD/elements/resource.txt
+https://www.celestrak.com/NORAD/elements/cubesat.txt
+http://celestrak.com/NORAD/elements/stations.txt
+https://www.celestrak.com/NORAD/elements/sarsat.txt
+https://www.celestrak.com/NORAD/elements/noaa.txt
+https://www.celestrak.com/NORAD/elements/amateur.txt
+https://www.celestrak.com/NORAD/elements/engineering.txt
+```
+
+<h2 id="documentation">Описание классов и методов</h3>
+
+### Содержание:
+1. [Функции](#functions)
+   1. [Функции файла `satelites.py`](#functions_satelites)
+   2. [Функции файла `window.py`](#functions_window)
+2. [Класс `place`](#class_place)
+2. [Класс `Satelite`](#class_satelite)
+3. [Методы класса `Satelite`](#methods_satelite)
+4. [Классы интерфейса](#class_satelite)
+
+<h3 id="functions">Функции</h3>
+
+<h4 id="functions_satelites">Функции файла `satelites.py`</h3>
+
+`timenow(start_time, use_speed)` возвращает время в программе,
+учитывая скорость течения времени в программе.
+
+```
+Параметры:
+– start_time: datetime
+  Значение по умолчанию: datetime.datetime.now(UTC)
+– use_speed: bool
+  Значение по умолчанию: False
+```
+
+`save_to_json(**kwargs)` сохраняет кэш `**kwargs` в файл по заданным параметрам.
+
+`load_from_json(*args)` возвращает сохраненный кэш из файла.
+
+Декоратор `TLE(func)` при вызове функций, связанных с TLE-данными,
+проверяет актуальность данных и обновляет их.
+
+`update_tle(urls, all_update)` обновляет TLE данные, загружая по ссылкам, и возвращает время обновления `update: datetime`.
+
+```
+Параметры:
+– urls: str
+– all_update: bool
+  Значение по умолчанию: False
+```
+
+`create_folder(workspace, folder)` создает технические папки для работы программы и выводит результат выполнения.
+
+```
+Параметры:
+– workspace: str
+– folder: str
+```
+
+`update_settings()` обновляет настройки в приложении, загружая их из `data.json.
+
+<h4 id="functions_window">Функции файла `window.py`</h3>
+
+`draw_map(m, scale)` рисует линии широт и медиан на карте.
+
+```
+Параметры:
+– m: Basemap()
+– scale: float
+  Значение по умолчанию: 0.2
+```
+
+`rasdel(l)`
+```
+Параметры:
+– l: 
+```
+
+`rainbow(iter, speed, brightness, unbrightness)` подбирает новый цвет для визуализации траектории спутника.
+
+```
+Параметры:
+– iter: 
+– speed: 
+– brightness: 
+– unbrightness: 
+```
+
+`window(sattelite, timenow, load_from_json, save_to_json, place, selected_items, color, color_iter)` открывает окно с программой.
+
+```
+Параметры:
+– sattelite: 
+– timenow: 
+– load_from_json: 
+– save_to_json: 
+– place:
+– selected_items:
+– color: 
+– color_iter:
+```
+
+<h3 id="class_place">Класс `place`</h3>
+
+Хранит в себе координаты наблюдателя.
+
+```
+Значения по умолчанию:
+– lon: float = 0
+– lat: float = 0
+– alt: float = 0
+```
+
+<h3 id="class_satelite">Класс `Satelite`</h3>
+
+```
+Инициализируется параметрами:
+– name: str
+– place: place()
+```
+
+<h3 id="methods_satelite">Методы класса `Satelite`</h3>
+
+`Satelite.get_location()` возвращает координаты спутника.
+
+`Satelite.get_while_loc(deltaseconds)` возвращает массив широт для matplotlib.
+
+```
+Параметры:
+– deltaseconds: float
+  Значение по умолчанию: 10
+```
+
+`Satelite.get_orbit_number()` возвращает номер орбиты спутника.
+
+`Satelite.get_observer(time)` возвращает координаты в небесной сфере относительно точки наблюдателя.
+
+```
+Параметры:
+– time: datetime
+  Значение по умолчанию: timenow(use_speed=True)
+```
+
+`Satelite.get_next_observers(horizon, max_angle, delta_seconds)`
+
+```
+Параметры:
+– horizon: float
+  Значение по умолчанию: 0
+– max_angle: float
+  Значение по умолчанию: 60
+– delta_seconds: float
+  Значение по умолчанию: 0.5
+```
+
+Метод get_next_passes(horizon = 0, max_angle = 30) возвращает
+рассчитанные проходы на следующие часы для заданного времени начала и данного наблюдателя.
+
+`Satelite.get_positions()` возвращает декартово положение и скорость со спутника.
+
+`Satelite.update_place(my_place)` обновляет позицию наблюдателя.
+
+```
+Параметры:
+– my_place: place()
+```
+
+`Satelite.update()`
+
+<h3 id="class_satelite">Классы интерфейса</h3>
