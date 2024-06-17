@@ -1,8 +1,17 @@
+# Документация
+
+## Требования к среде
 ```
 python3.12 -m .venv .venv
 source .venv/bin/activate
 pip install -r requirements.txt
 ```
+## Для подробной информации обращайтесь к руководствам
 
-[User guide](/documentation/User%20guide.md)
-[Developer guide](/documentation/Developer%20guide.md)
+Для учебных и любительских задач.
+
+Для профессионального изучения спутников требуется знать базовые основы географии и навигации на местности, основы астрономии, движения небесных тел и спутников.
+
+### [Руководство пользователя](/documentation/User%20guide.md)
+
+### [Руководство разработчика](/documentation/Developer%20guide.md)
