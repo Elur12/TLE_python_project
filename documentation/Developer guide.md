@@ -76,12 +76,20 @@ https://www.celestrak.com/NORAD/elements/engineering.txt
   Значение по умолчанию: False
 ```
 
+---
+
 `save_to_json(**kwargs)` сохраняет кэш `**kwargs` в файл по заданным параметрам.
+
+---
 
 `load_from_json(*args)` возвращает сохраненный кэш из файла.
 
+---
+
 Декоратор `TLE(func)` при вызове функций, связанных с TLE-данными,
 проверяет актуальность данных и обновляет их.
+
+---
 
 `update_tle(urls, all_update)` обновляет TLE данные, загружая по ссылкам, и возвращает время обновления `update: datetime`.
 
@@ -92,6 +100,8 @@ https://www.celestrak.com/NORAD/elements/engineering.txt
   Значение по умолчанию: False
 ```
 
+---
+
 `create_folder(workspace, folder)` создает технические папки для работы программы и выводит результат выполнения.
 
 ```
@@ -100,7 +110,11 @@ https://www.celestrak.com/NORAD/elements/engineering.txt
 – folder: str
 ```
 
+---
+
 `update_settings()` обновляет настройки в приложении, загружая их из `data.json.
+
+---
 
 <h4 id="functions_window">Функции файла `window.py`</h3>
 
@@ -113,11 +127,15 @@ https://www.celestrak.com/NORAD/elements/engineering.txt
   Значение по умолчанию: 0.2
 ```
 
+---
+
 `rasdel(l)`
 ```
 Параметры:
 – l: 
 ```
+
+---
 
 `rainbow(iter, speed, brightness, unbrightness)` подбирает новый цвет для визуализации траектории спутника.
 
@@ -128,6 +146,8 @@ https://www.celestrak.com/NORAD/elements/engineering.txt
 – brightness: 
 – unbrightness: 
 ```
+
+---
 
 `window(sattelite, timenow, load_from_json, save_to_json, place, selected_items, color, color_iter)` открывает окно с программой.
 
@@ -143,6 +163,8 @@ https://www.celestrak.com/NORAD/elements/engineering.txt
 – color_iter:
 ```
 
+---
+
 <h3 id="class_place">Класс `place`</h3>
 
 Хранит в себе координаты наблюдателя.
@@ -154,6 +176,8 @@ https://www.celestrak.com/NORAD/elements/engineering.txt
 – alt: float = 0
 ```
 
+---
+
 <h3 id="class_satelite">Класс `Satelite`</h3>
 
 ```
@@ -162,9 +186,13 @@ https://www.celestrak.com/NORAD/elements/engineering.txt
 – place: place()
 ```
 
+---
+
 <h3 id="methods_satelite">Методы класса `Satelite`</h3>
 
 `Satelite.get_location()` возвращает координаты спутника.
+
+---
 
 `Satelite.get_while_loc(deltaseconds)` возвращает массив широт для matplotlib.
 
@@ -174,7 +202,11 @@ https://www.celestrak.com/NORAD/elements/engineering.txt
   Значение по умолчанию: 10
 ```
 
+---
+
 `Satelite.get_orbit_number()` возвращает номер орбиты спутника.
+
+---
 
 `Satelite.get_observer(time)` возвращает координаты в небесной сфере относительно точки наблюдателя.
 
@@ -183,6 +215,8 @@ https://www.celestrak.com/NORAD/elements/engineering.txt
 – time: datetime
   Значение по умолчанию: timenow(use_speed=True)
 ```
+
+---
 
 `Satelite.get_next_observers(horizon, max_angle, delta_seconds)`
 
@@ -196,10 +230,24 @@ https://www.celestrak.com/NORAD/elements/engineering.txt
   Значение по умолчанию: 0.5
 ```
 
-Метод get_next_passes(horizon = 0, max_angle = 30) возвращает
+---
+
+`Satelite.get_next_passes(horizon, max_angle)` возвращает
 рассчитанные проходы на следующие часы для заданного времени начала и данного наблюдателя.
 
+```
+Параметры:
+– horizon: float
+  Значение по умолчанию: 0
+– max_angle: float
+  Значение по умолчанию: 30
+```
+
+---
+
 `Satelite.get_positions()` возвращает декартово положение и скорость со спутника.
+
+---
 
 `Satelite.update_place(my_place)` обновляет позицию наблюдателя.
 
@@ -208,6 +256,119 @@ https://www.celestrak.com/NORAD/elements/engineering.txt
 – my_place: place()
 ```
 
+---
+
 `Satelite.update()`
 
+---
+
 <h3 id="class_satelite">Классы интерфейса</h3>
+
+#### Класс `MainWindow`
+
+Наследует класс `PyQt5.QtWidgets.QDialog` определяет главное
+окно программы, содержащее в себе вкладки.
+
+```
+Инициализируется значениями:
+– sattelites: [Satelite()]
+– timenow: timenow()
+– save_to_json: save_to_json()
+– place: place()
+– selected_items: [str] – выбранные спутники
+– color
+– color_iter
+– load_from_json: load_from_json()
+```
+
+##### Методы
+
+`MainWindow.message(item: PyQt5.QWidgets.QTableWidgetItem)` сохраняет выбранные спутники в `data.json`.
+
+`MainWindow.search(s: str)` выполняет поиск в таблице спутников по запросу `s`.
+
+`MainWindow.update_time(label_time: QLabel, timenow: timenow())` устанавливает время
+у текстового блока в нормализированном формате.
+
+`MainWindow.update_place(value: float, i: int)` сохраняет координаты наблюдателя в кэш.
+
+---
+
+#### Класс `TabTracking`
+
+Наследует класс `PyQt5.QtWidgets.QWidget` и хранит вкладку Tracking.
+
+```
+Инициализируется значениями:
+– sattelites: [Satelite()]
+– timenow: timenow()
+– place: place()
+– selected_items: [str] – выбранные спутники
+– color
+```
+
+##### Методы
+
+`TabTracking.update_plot()` обновляет картинку карту.
+
+`TabTracking.clear_all()` стирает картинку карту.
+
+---
+
+#### Класс `TabWorldMap`
+
+Наследует класс `PyQt5.QtWidgets.QWidget` и хранит вкладку World map.
+
+```
+Инициализируется значениями:
+– sattelites: [Satelite()]
+– place: place()
+– selected_items: [str] – выбранные спутники
+– color
+– save_to_json: save_to_json()
+– color_iter
+```
+
+##### Методы
+
+`TabWorldMap.update_plot()` обновляет картинку карты.
+
+`TabWorldMap.clear_all()` стирает картинку карты.
+
+`TabWorldMap.update_color()` обновляет цвета траекторий движения спутников.
+
+---
+
+#### Класс `TabSchedule`
+
+Наследует класс `PyQt5.QtWidgets.QWidget` и хранит вкладку Schedule.
+
+```
+Инициализируется значениями:
+– sattelites: [Satelite()]
+– selected_items: [str] – выбранные спутники
+```
+
+##### Методы
+
+`TabSchedule.update_plot()` обновляет данные в таблице.
+
+---
+
+#### Класс `TabSettings`
+
+Наследует класс `PyQt5.QtWidgets.QWidget` и хранит вкладку Settings.
+
+```
+Инициализируется значениями:
+– load_from_json: load_from_json()
+– save_to_json: save_to_json()
+– worldmap: TabWorldMap()
+– tracking: TabTracking()
+```
+
+##### Методы
+
+`TabSettings.save_settings()` обновляет программу исходя из настроек.
+
+`TabSettings.update_settings()` загружает настройки из `data.json`.
