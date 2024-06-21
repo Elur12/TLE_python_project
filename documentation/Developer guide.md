@@ -65,7 +65,7 @@ https://www.celestrak.com/NORAD/elements/engineering.txt
 
 <h4 id="functions_satelites">Функции файла `satelites.py`</h3>
 
-`timenow(start_time, use_speed)` возвращает время в программе,
+`timenow(start_time, use_speed) -> datetime` возвращает время в программе,
 учитывая скорость течения времени в программе.
 
 ```
@@ -82,7 +82,7 @@ https://www.celestrak.com/NORAD/elements/engineering.txt
 
 ---
 
-`load_from_json(*args)` возвращает сохраненный кэш из файла.
+`load_from_json(*args) -> ` возвращает сохраненный кэш из файла.
 
 ---
 
@@ -91,7 +91,8 @@ https://www.celestrak.com/NORAD/elements/engineering.txt
 
 ---
 
-`update_tle(urls, all_update)` обновляет TLE данные, загружая по ссылкам, и возвращает время обновления `update: datetime`.
+`update_tle(urls, all_update) -> datetime` обновляет TLE данные, загружая по ссылкам,
+и возвращает время обновления `update`.
 
 ```
 Параметры:
@@ -102,7 +103,8 @@ https://www.celestrak.com/NORAD/elements/engineering.txt
 
 ---
 
-`create_folder(workspace, folder)` создает технические папки для работы программы и выводит результат выполнения.
+`create_folder(workspace, folder)` создает технические папки
+для работы программы и выводит результат выполнения.
 
 ```
 Параметры:
@@ -112,7 +114,7 @@ https://www.celestrak.com/NORAD/elements/engineering.txt
 
 ---
 
-`update_settings()` обновляет настройки в приложении, загружая их из `data.json.
+`update_settings()` обновляет настройки в приложении, загружая их из `data.json`.
 
 ---
 
@@ -129,22 +131,23 @@ https://www.celestrak.com/NORAD/elements/engineering.txt
 
 ---
 
-`rasdel(l)`
+`rasdel(l) -> []` считает, когда график подходит к концу траектории и делит общий график на `2l`.
+
 ```
 Параметры:
-– l: 
+– l: int
 ```
 
 ---
 
-`rainbow(iter, speed, brightness, unbrightness)` подбирает новый цвет для визуализации траектории спутника.
+`rainbow(iter, speed, brightness, unbrightness) -> float` подбирает новый цвет для визуализации траектории спутника.
 
 ```
 Параметры:
-– iter: 
-– speed: 
-– brightness: 
-– unbrightness: 
+– iter: насколько далеко от радуги ушли
+– speed: длина радуги
+– brightness: максимальное значение у цвета радуги
+– unbrightness: когда iter > speed, делает цвет более пастельным
 ```
 
 ---
@@ -153,14 +156,14 @@ https://www.celestrak.com/NORAD/elements/engineering.txt
 
 ```
 Параметры:
-– sattelite: 
-– timenow: 
-– load_from_json: 
-– save_to_json: 
-– place:
-– selected_items:
-– color: 
-– color_iter:
+– sattelite: [Satelite()]
+– timenow: timenow()
+– load_from_json: load_from_json()
+– save_to_json: save_to_json()
+– place: place()
+– selected_items: {str} – выбранные спутники
+– color: dict(название_спутника: цвет)
+– color_iter: int – количество занятых цветов
 ```
 
 ---
@@ -190,11 +193,11 @@ https://www.celestrak.com/NORAD/elements/engineering.txt
 
 <h3 id="methods_satelite">Методы класса `Satelite`</h3>
 
-`Satelite.get_location()` возвращает координаты спутника.
+`Satelite.get_location() -> tuple[None, None, float]` возвращает координаты спутника.
 
 ---
 
-`Satelite.get_while_loc(deltaseconds)` возвращает массив широт для matplotlib.
+`Satelite.get_while_loc(deltaseconds) -> list[list | list[None]]` возвращает массив широт для matplotlib.
 
 ```
 Параметры:
@@ -204,11 +207,11 @@ https://www.celestrak.com/NORAD/elements/engineering.txt
 
 ---
 
-`Satelite.get_orbit_number()` возвращает номер орбиты спутника.
+`Satelite.get_orbit_number() -> int` возвращает номер орбиты спутника.
 
 ---
 
-`Satelite.get_observer(time)` возвращает координаты в небесной сфере относительно точки наблюдателя.
+`Satelite.get_observer(time) -> tuple[float, None]` возвращает координаты в небесной сфере относительно точки наблюдателя.
 
 ```
 Параметры:
@@ -218,7 +221,8 @@ https://www.celestrak.com/NORAD/elements/engineering.txt
 
 ---
 
-`Satelite.get_next_observers(horizon, max_angle, delta_seconds)`
+`Satelite.get_next_observers(horizon, max_angle, delta_seconds) -> list[list | datetime]` возвращает список координат
+в угловой форме для отображение в TabTracking.
 
 ```
 Параметры:
@@ -232,7 +236,7 @@ https://www.celestrak.com/NORAD/elements/engineering.txt
 
 ---
 
-`Satelite.get_next_passes(horizon, max_angle)` возвращает
+`Satelite.get_next_passes(horizon, max_angle) -> list` возвращает
 рассчитанные проходы на следующие часы для заданного времени начала и данного наблюдателя.
 
 ```
@@ -245,7 +249,7 @@ https://www.celestrak.com/NORAD/elements/engineering.txt
 
 ---
 
-`Satelite.get_positions()` возвращает декартово положение и скорость со спутника.
+`Satelite.get_positions() -> tuple[ndarray, ndarray]` возвращает декартово положение и скорость со спутника.
 
 ---
 
@@ -258,7 +262,7 @@ https://www.celestrak.com/NORAD/elements/engineering.txt
 
 ---
 
-`Satelite.update()`
+`Satelite.update()` обновляет [Satelite()] в соответствии с новыми данными из внешнего сервера.
 
 ---
 
@@ -275,7 +279,7 @@ https://www.celestrak.com/NORAD/elements/engineering.txt
 – timenow: timenow()
 – save_to_json: save_to_json()
 – place: place()
-– selected_items: [str] – выбранные спутники
+– selected_items:  {str} – выбранные спутники
 – color
 – color_iter
 – load_from_json: load_from_json()
@@ -303,7 +307,7 @@ https://www.celestrak.com/NORAD/elements/engineering.txt
 – sattelites: [Satelite()]
 – timenow: timenow()
 – place: place()
-– selected_items: [str] – выбранные спутники
+– selected_items: {str} – выбранные спутники
 – color
 ```
 
@@ -323,7 +327,7 @@ https://www.celestrak.com/NORAD/elements/engineering.txt
 Инициализируется значениями:
 – sattelites: [Satelite()]
 – place: place()
-– selected_items: [str] – выбранные спутники
+– selected_items: {str} – выбранные спутники
 – color
 – save_to_json: save_to_json()
 – color_iter
@@ -346,7 +350,7 @@ https://www.celestrak.com/NORAD/elements/engineering.txt
 ```
 Инициализируется значениями:
 – sattelites: [Satelite()]
-– selected_items: [str] – выбранные спутники
+– selected_items: {str} – выбранные спутники
 ```
 
 ##### Методы
