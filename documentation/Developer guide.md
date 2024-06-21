@@ -17,7 +17,8 @@
 <h3 id="structure">Структура каталогов</h3>
 
 * /data
-  * data.json
+  * data.pk
+  * data.csv
 * /documentation
   * Developer guide.md
   * User guide.md
@@ -90,6 +91,9 @@ https://www.celestrak.com/NORAD/elements/engineering.txt
 проверяет актуальность данных и обновляет их.
 
 ---
+Декоратор `csv_info(func)` при вызове функций, связанных с SHEET - обновляет файл data.csv согласно новым данным
+
+---
 
 `update_tle(urls, all_update) -> datetime` обновляет TLE данные, загружая по ссылкам,
 и возвращает время обновления `update`.
@@ -131,7 +135,7 @@ https://www.celestrak.com/NORAD/elements/engineering.txt
 
 ---
 
-`rasdel(l) -> []` считает, когда график подходит к концу траектории и делит общий график на `2l`.
+`rasdel(l) -> []` считает, когда график подходит к концу траектории и делит общий график на два графика: левый и правый.
 
 ```
 Параметры:

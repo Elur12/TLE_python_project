@@ -49,7 +49,6 @@ def save_to_pk(**kwargs):
         match i:
             case "SPEED":
                 start_time = timenow()
-                print(start_time)
                 for i in satelites.keys():
                     satelites[i].start_time = timenow()
             case "DELTA_TLE_HOURS":
@@ -228,7 +227,6 @@ def creat_add_info(inf,name):
             lines = file.readlines().copy()
     except:
         pass
-    print(lines)
     with open(os.path.dirname(os.path.abspath(__file__)) + '/data/data.csv', 'w') as file:
         op = []
         for j in inf:
@@ -237,7 +235,7 @@ def creat_add_info(inf,name):
                 stri = i.split(";")
                 if(stri[0] == name):
                     date_start = datetime.strptime(stri[1], "%c").replace(tzinfo=UTC)
-                    print(stri[1], j[0].strftime("%c"))
+
                     if(date_start - timedelta(minutes=5) < j[0] or j[0] < date_start + timedelta(minutes=5)):
                         add = False
             if(add):
