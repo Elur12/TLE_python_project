@@ -152,7 +152,7 @@ class MainWindow(QDialog):
 
         tab_widget.addTab(tracking, "Tracking")
         tab_widget.addTab(worldmap, "World Map")
-        tab_widget.addTab(tab_schedule, "Schedule")
+        tab_widget.addTab(tab_schedule, "Sheet")
         tab_widget.addTab(settings, "Settings")
 
         update_button.clicked.connect(lambda x: (settings.save_settings(), tab_schedule.update_plot()))
