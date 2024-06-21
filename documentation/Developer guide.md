@@ -379,4 +379,4 @@ https://www.celestrak.com/NORAD/elements/engineering.txt
 
 `TabSettings.save_settings()` обновляет программу исходя из настроек.
 
-`TabSettings.update_settings()` загружает настройки из `data.json`.
+`TabSettings.update_settings()` загружает настройки из `data.pk`.
