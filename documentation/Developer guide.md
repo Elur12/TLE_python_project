@@ -2,8 +2,9 @@
 1. [Требования к среде](#reqirements)
 2. [Архитектура программного обеспечения](#architecture)
 3. [Структура каталогов](#structure)
-4. [Внешние источники данных](#sources)
-5. [Описание классов и методов](#documentation)
+4. [Схема работы программы](#scheme)
+5. [Внешние источники данных](#sources)
+6. [Описание классов и методов](#documentation)
 
 <h3 id="requirements">Требования к системе</h3>
 
@@ -35,10 +36,15 @@
   * class `place`
   * class `Satelite`
 
+<h3 id="scheme">Схема работы программы</h3>
+
+![scheme](images/scheme.png)
+
 <h3 id="sources">Внешние источники данных</h3>
 
 Программа получает TLE-данные по заданным в настройках (вкладка `Settings`) ссылкам.
 По умолчанию набор ссылок выглядит следующим образом:
+
 ```
 http://www.celestrak.com/NORAD/elements/active.txt
 http://celestrak.com/NORAD/elements/weather.txt
