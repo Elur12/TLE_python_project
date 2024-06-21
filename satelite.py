@@ -5,7 +5,7 @@ from datetime import UTC
 import requests
 import os
 from dataclasses import dataclass
-import pickle as json
+import pickle as pk
 import interface.window as win
 
 '''
@@ -27,13 +27,13 @@ def timenow(start_time: datetime = start_time, use_speed: bool = False):
         return datetime.now(UTC)
     
 
-def save_to_json(**kwargs):
+def save_to_pk(**kwargs): 
     global start_time
     data = {}
     create_folder(os.path.dirname(os.path.abspath(__file__)), 'data')
     try:
         with open(os.path.dirname(os.path.abspath(__file__)) + '/data/' + 'data.pk', 'rb') as file:
-            data = json.load(file)
+            data = pk.load(file)
     except:
         print("creating data file")
     with open(os.path.dirname(os.path.abspath(__file__)) + '/data/' + 'data.pk', 'wb') as file:
@@ -44,7 +44,7 @@ def save_to_json(**kwargs):
                         'COLOR_UNBRIGHTNESS', 'COLOR_VAL', 'COVERAGE_LON', 'MAX_ANGLE', \
                             'HORIZON', 'DELTA_SECONDS'):
                 up = True
-        json.dump(data, file)
+        pk.dump(data, file)
     for i in kwargs.keys():
         match i:
             case "SPEED":
@@ -57,23 +57,22 @@ def save_to_json(**kwargs):
     if(up):
         update_settings()
 
-def load_from_json(*args):
+def load_from_pk(*args):
     data = {}
     set_args = set(args)
     result = [0]*len(args)
     try:
         with open(os.path.dirname(os.path.abspath(__file__)) + '/data/' + 'data.pk', 'rb') as file:
-            data = json.load(file)
+            data = pk.load(file)
             set_args = set(data.keys()) & set_args
             for i in range(len(args)):
                 if(args[i] in set_args):
                     result[i]=data[args[i]]
     except:
-        save_to_json(color_iter = 0, color = {}, selected_items = (), place = [0,0,0], SPEED = SPEED, TLE_URLS = TLE_URLS, DELTA_TLE_HOURS = DELTA_TLE_HOURS, LENGHT_PASSES = LENGHT_PASSES, COLOR_BRIGHTNESS = win.COLOR_BRIGHTNESS, COLOR_UNBRIGHTNESS = win.COLOR_UNBRIGHTNESS, COLOR_VAL = win.COLOR_VAL, COVERAGE_LON = win.COVERAGE_LON, MAX_ANGLE = win.MAX_ANGLE, HORIZON = win.HORIZON, DELTA_SECONDS = win.DELTA_SECONDS)
+        save_to_pk(color_iter = 0, color = {}, selected_items = (), place = [0,0,0], SPEED = SPEED, TLE_URLS = TLE_URLS, DELTA_TLE_HOURS = DELTA_TLE_HOURS, LENGHT_PASSES = LENGHT_PASSES, COLOR_BRIGHTNESS = win.COLOR_BRIGHTNESS, COLOR_UNBRIGHTNESS = win.COLOR_UNBRIGHTNESS, COLOR_VAL = win.COLOR_VAL, COVERAGE_LON = win.COVERAGE_LON, MAX_ANGLE = win.MAX_ANGLE, HORIZON = win.HORIZON, DELTA_SECONDS = win.DELTA_SECONDS)
         print("No file")
-        result = load_from_json(*args)
+        result = load_from_pk(*args)
     return result
-
 
 
 
@@ -113,6 +112,13 @@ def TLE(func):
             for i in satelites.keys():
                 satelites[i].update()
         return func(*args, **kwargs)
+    return wrapper
+
+def csv_info(func):
+    def wrapper(*args, **kwargs):
+        g, n = func(*args, **kwargs)
+        creat_add_info(g, n)
+        return g, n
     return wrapper
 
 class Satelite():
@@ -171,7 +177,7 @@ class Satelite():
 
     @TLE
     def get_next_observers(self, horizon = 0, max_angle = 60, delta_seconds = 0.5):
-        passe = self.get_next_passes(horizon=horizon, max_angle=max_angle)
+        passe, name = self.get_next_passes(horizon=horizon, max_angle=max_angle)
         observers = [[],[], timenow(self.start_time, use_speed=True), timenow(self.start_time, use_speed=True)]
         if(len(passe) > 0):
             passe = passe[0]
@@ -186,18 +192,20 @@ class Satelite():
 
         return observers
 
-    
     @TLE
+    @csv_info
     def get_next_passes(self, horizon = 0, max_angle = 30):
         passes = self.orb.get_next_passes(timenow(self.start_time, use_speed=True), LENGHT_PASSES, self.my_place.lon, self.my_place.lat, self.my_place.alt, horizon=horizon)
         i = 0
         while i < len(passes):
+            passes[i] = list(passes[i])
+            passes[i].append(self.orb.get_observer_look(passes[i][2], self.my_place.lon, self.my_place.lat, self.my_place.alt)[1])
             if(self.orb.get_observer_look(passes[i][2], self.my_place.lon, self.my_place.lat, self.my_place.alt)[1] < max_angle):
                 passes.pop(i)
             else:
                 i += 1
 
-        return passes
+        return passes, self.name
 
     @TLE
     def get_positions(self):
@@ -211,6 +219,40 @@ class Satelite():
 
     def update(self):
         self.orb = Orbital(self.name, line1=satelite_line[self.name][0], line2=satelite_line[self.name][1])
+
+def creat_add_info(inf,name):
+    create_folder(os.path.dirname(os.path.abspath(__file__)), 'data')
+    lines = []
+    try:
+        with open(os.path.dirname(os.path.abspath(__file__)) + '/data/data.csv', 'r') as file:
+            lines = file.readlines().copy()
+    except:
+        pass
+    print(lines)
+    with open(os.path.dirname(os.path.abspath(__file__)) + '/data/data.csv', 'w') as file:
+        op = []
+        for j in inf:
+            add = True
+            for i in lines:
+                stri = i.split(";")
+                if(stri[0] == name):
+                    date_start = datetime.strptime(stri[1], "%c").replace(tzinfo=UTC)
+                    print(stri[1], j[0].strftime("%c"))
+                    if(date_start - timedelta(minutes=5) < j[0] or j[0] < date_start + timedelta(minutes=5)):
+                        add = False
+            if(add):
+                op.append(j.copy())
+        for i in range(len(op)):
+            l = [0]*4
+            l[0] = op[i][0].strftime("%c")
+            l[1] = op[i][1].strftime("%c")
+            l[2] = op[i][2].strftime("%c")
+            l[3] = str(op[i][3])
+            lines.append(name + ';' + ';'.join(l) + '\n')
+        for i in lines:
+            if(i != '\n'):
+                file.write(i)
+        
 
 def update_tle(urls, all_update: bool = False) -> datetime:
     update = timenow() - timedelta(hours=DELTA_TLE_HOURS + 1)
@@ -253,17 +295,17 @@ def update_settings():
     global SPEED, TLE_URLS, DELTA_TLE_HOURS, LENGHT_PASSES
     SPEED, TLE_URLS, DELTA_TLE_HOURS, LENGHT_PASSES, win.COLOR_BRIGHTNESS, \
         win.COLOR_UNBRIGHTNESS, win.COLOR_VAL, win.COVERAGE_LON, win.MAX_ANGLE, \
-            win.HORIZON, win.DELTA_SECONDS = load_from_json('SPEED', 'TLE_URLS', 'DELTA_TLE_HOURS', 'LENGHT_PASSES', 'COLOR_BRIGHTNESS', \
+            win.HORIZON, win.DELTA_SECONDS = load_from_pk('SPEED', 'TLE_URLS', 'DELTA_TLE_HOURS', 'LENGHT_PASSES', 'COLOR_BRIGHTNESS', \
                 'COLOR_UNBRIGHTNESS', 'COLOR_VAL', 'COVERAGE_LON', 'MAX_ANGLE', \
                     'HORIZON', 'DELTA_SECONDS')
 
 if __name__ == "__main__":
-    update_date = update_tle(TLE_URLS)
-    my_place = load_from_json('place')[0]
     update_settings()
+    update_date = update_tle(TLE_URLS)
+    my_place = load_from_pk('place')[0]
     for i in satelite_line.keys():
         try:
             satelites.update({i:Satelite(i, place(my_place[0], my_place[1], my_place[2]))})
         except:
             print("Satellite: ", i, ", doesn't work")
-    win.window(satelites, lambda : timenow(use_speed=True), load_from_json, save_to_json, load_from_json('place')[0], load_from_json('selected_items')[0], load_from_json('color')[0], load_from_json('color_iter')[0])
+    win.window(satelites, lambda : timenow(use_speed=True), load_from_pk, save_to_pk, load_from_pk('place')[0], load_from_pk('selected_items')[0], load_from_pk('color')[0], load_from_pk('color_iter')[0])

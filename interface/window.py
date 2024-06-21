@@ -26,7 +26,7 @@ MAX_ANGLE = 30
 HORIZON = 0
 DELTA_SECONDS = 0.5
 
-save_to_json = None
+save_to_pk = None
 
 def draw_map(m, scale=0.2):
     # draw a shaded-relief image
@@ -55,7 +55,7 @@ class MainWindow(QDialog):
             self.selected_items.add(item.text())
         else:
             self.selected_items.discard(item.text())
-        self.save_to_json(selected_items = self.selected_items)
+        self.save_to_pk(selected_items = self.selected_items)
 
     def search(self, s):
         # Clear current selection.
@@ -73,7 +73,7 @@ class MainWindow(QDialog):
             for item in matching_items:
                 item.setSelected(True)
 
-    def __init__(self, sattelites, timenow, save_to_json, place, selected_items, color, color_iter, load_from_json):
+    def __init__(self, sattelites, timenow, save_to_pk, place, selected_items, color, color_iter, load_from_pk):
         super().__init__()
 
         self.setWindowTitle("Трекинг спутников на базе TLE данных")
@@ -81,7 +81,7 @@ class MainWindow(QDialog):
         self.resize(630, 300)
 
         self.place = place
-        self.save_to_json = save_to_json
+        self.save_to_pk = save_to_pk
 
         right_frame = QFrame()
         right_frame.setFrameShape(QFrame.StyledPanel)
@@ -146,9 +146,9 @@ class MainWindow(QDialog):
         tab_widget = QTabWidget()
 
         tab_schedule = TabSchedule(sattelites=sattelites, selected_items=self.selected_items)
-        worldmap = TabWorldMap(sattelites=sattelites, place=self.place, selected_items=self.selected_items, color=self.color, save_to_json=save_to_json, color_iter=color_iter)
+        worldmap = TabWorldMap(sattelites=sattelites, place=self.place, selected_items=self.selected_items, color=self.color, save_to_pk=save_to_pk, color_iter=color_iter)
         tracking = TabTracking(sattelites=sattelites, timenow=timenow, place=self.place, selected_items=self.selected_items, color=self.color)
-        settings = TabSettings(load_from_json=load_from_json, save_to_json=save_to_json, worldmap=worldmap, tracking=tracking)
+        settings = TabSettings(load_from_pk=load_from_pk, save_to_pk=save_to_pk, worldmap=worldmap, tracking=tracking)
 
         tab_widget.addTab(tracking, "Tracking")
         tab_widget.addTab(worldmap, "World Map")
@@ -202,7 +202,7 @@ class MainWindow(QDialog):
 
     def update_place(self, value: float, i: int):
         self.place[i] = value
-        self.save_to_json(place = self.place)
+        self.save_to_pk(place = self.place)
 
 class TabTracking(QWidget):
     def __init__(self, sattelites, timenow, place, selected_items, color):
@@ -322,13 +322,13 @@ class MplCanvas(FigureCanvas):
         super(MplCanvas, self).__init__(fig)
 
 class TabWorldMap(QWidget):
-    def __init__(self, sattelites, place, selected_items, color, save_to_json, color_iter):
+    def __init__(self, sattelites, place, selected_items, color, save_to_pk, color_iter):
         super().__init__()
         vbox = QVBoxLayout()
 
         self.color = color
         self.selected_items = selected_items
-        self.save_to_json = save_to_json
+        self.save_to_pk = save_to_pk
 
         self.canvas = MplCanvas(self, width=8, height=6, dpi=100)
         self.clear_all()
@@ -372,7 +372,7 @@ class TabWorldMap(QWidget):
         for i in self.color.keys():
             self.color[i] = rainbow(self.color_iter, COLOR_VAL, COLOR_BRIGHTNESS, COLOR_UNBRIGHTNESS)
             self.color_iter += 1
-            self.save_to_json(color = self.color, color_iter = self.color_iter)
+            self.save_to_pk(color = self.color, color_iter = self.color_iter)
             if(self.color_iter >= COLOR_VAL*(1/COLOR_UNBRIGHTNESS)*(1/(COLOR_BRIGHTNESS-COLOR_UNBRIGHTNESS))):
                 self.color_iter = 0
             col = self.color.get(i)
@@ -391,7 +391,6 @@ class TabWorldMap(QWidget):
 
             self.update_plot()
 
-    
     def update_plot(self):
         #self.clear()
         update_place = False
@@ -409,7 +408,7 @@ class TabWorldMap(QWidget):
             if(self.color.get(i) == None):
                 self.color[i] = rainbow(self.color_iter, COLOR_VAL, COLOR_BRIGHTNESS, COLOR_UNBRIGHTNESS)
                 self.color_iter += 1
-                self.save_to_json(color = self.color, color_iter = self.color_iter)
+                self.save_to_pk(color = self.color, color_iter = self.color_iter)
                 if(self.color_iter >= COLOR_VAL*(1/COLOR_UNBRIGHTNESS)*(1/(COLOR_BRIGHTNESS-COLOR_UNBRIGHTNESS))):
                     self.color_iter = 0
             col = self.color.get(i)
@@ -496,7 +495,7 @@ class TabSchedule(QWidget):
         for i in range(count_of_list):
             name = list_of_selected_items[i]
 
-            next_passes = self.sattelites[name].get_next_passes(max_angle = MAX_ANGLE)
+            next_passes, n = self.sattelites[name].get_next_passes(max_angle = MAX_ANGLE)
             for j in range(len(next_passes)):
                 next_passes[j] = (name, next_passes[j][0], next_passes[j][1], next_passes[j][2])
             all_passes += next_passes
@@ -520,11 +519,11 @@ class TabSchedule(QWidget):
             self.table.setItem(i, 3, apogee_item)
 
 class TabSettings(QWidget):
-    def __init__(self, load_from_json, save_to_json, worldmap, tracking):
+    def __init__(self, load_from_pk, save_to_pk, worldmap, tracking):
         super().__init__()
 
-        self.save_to_json = save_to_json
-        self.load_from_json = load_from_json
+        self.save_to_pk = save_to_pk
+        self.load_from_pk = load_from_pk
         self.functions_update = []
         self.functions_value = []
         self.worldmap = worldmap
@@ -540,25 +539,12 @@ class TabSettings(QWidget):
         self.spinBox.setMinimum(1)
         self.spinBox.setMaximum(20)
         self.label.setLayoutDirection(QtCore.Qt.LeftToRight)
-        self.label.setAlignment(QtCore.Qt.AlignRight|QtCore.Qt.AlignTrailing|QtCore.Qt.AlignVCenter)
         self.label.setText("COLOR_VAL")
+        hbox_1.addWidget(self.label)
         hbox_1.addWidget(self.spinBox)
         self.functions_update.append(lambda x: self.spinBox.setValue(x))
         self.functions_value.append(lambda : self.spinBox.value())
-        hbox_1.addWidget(self.label)
         vbox.addLayout(hbox_1)
-
-        hbox_2 = QHBoxLayout()
-        self.plainTextEdit = QtWidgets.QPlainTextEdit()
-        self.label_2 = QtWidgets.QLabel()
-        self.label_2.setLayoutDirection(QtCore.Qt.LeftToRight)
-        self.label_2.setAlignment(QtCore.Qt.AlignRight|QtCore.Qt.AlignTop|QtCore.Qt.AlignTrailing)
-        self.label_2.setText("TLE_URLS\n\n\n ")
-        hbox_2.addWidget(self.plainTextEdit)
-        self.functions_value.append(lambda : self.plainTextEdit.toPlainText().split(';\n'))
-        self.functions_update.append(lambda x: self.plainTextEdit.setPlainText(';\n'.join(x)))
-        hbox_2.addWidget(self.label_2)
-        vbox.addLayout(hbox_2)  
 
         hbox_3 = QHBoxLayout()
         self.timeEdit = QtWidgets.QSpinBox()
@@ -567,105 +553,109 @@ class TabSettings(QWidget):
         self.timeEdit.setSingleStep(12)
         self.label_3 = QtWidgets.QLabel()
         self.label_3.setLayoutDirection(QtCore.Qt.LeftToRight)
-        self.label_3.setAlignment(QtCore.Qt.AlignRight|QtCore.Qt.AlignTrailing|QtCore.Qt.AlignVCenter)
         self.label_3.setText("DELTA_TLE_HOURS")
+        hbox_3.addWidget(self.label_3)
         hbox_3.addWidget(self.timeEdit)
         self.functions_value.append(lambda : self.timeEdit.value())
         self.functions_update.append(lambda x: self.timeEdit.setValue(x))
-        hbox_3.addWidget(self.label_3)
         vbox.addLayout(hbox_3)  
 
         hbox_4 = QHBoxLayout()
         self.label_4 = QtWidgets.QLabel()
         self.label_4.setLayoutDirection(QtCore.Qt.LeftToRight)
-        self.label_4.setAlignment(QtCore.Qt.AlignRight|QtCore.Qt.AlignTrailing|QtCore.Qt.AlignVCenter)
         self.timeEdit_2 = QtWidgets.QSpinBox()
         self.timeEdit_2.setMaximum(24*7)
         self.timeEdit_2.setMinimum(1)
         self.timeEdit_2.setSingleStep(12)
         self.label_4.setText("LENGHT_PASSES")
+        hbox_4.addWidget(self.label_4)
         hbox_4.addWidget(self.timeEdit_2)
         self.functions_value.append(lambda : self.timeEdit_2.value())
         self.functions_update.append(lambda x: self.timeEdit_2.setValue(x))
-        hbox_4.addWidget(self.label_4)
         vbox.addLayout(hbox_4)  
 
         hbox_5 = QHBoxLayout()
         self.label_5 = QtWidgets.QLabel()
         self.label_5.setLayoutDirection(QtCore.Qt.LeftToRight)
-        self.label_5.setAlignment(QtCore.Qt.AlignRight|QtCore.Qt.AlignTrailing|QtCore.Qt.AlignVCenter)
         self.doubleSpinBox = QtWidgets.QDoubleSpinBox()
         self.doubleSpinBox.setMaximum(1)
         self.doubleSpinBox.setMinimum(0)
         self.doubleSpinBox.setDecimals(3)
         self.doubleSpinBox.setSingleStep(0.1)
         self.label_5.setText("COLOR_BRIGHTNESS")
+        hbox_5.addWidget(self.label_5)
         hbox_5.addWidget(self.doubleSpinBox)
         self.functions_value.append(lambda : self.doubleSpinBox.value())
         self.functions_update.append(lambda x: self.doubleSpinBox.setValue(x))
-        hbox_5.addWidget(self.label_5)
         vbox.addLayout(hbox_5)  
 
         hbox_6 = QHBoxLayout()
         self.label_6 = QtWidgets.QLabel()
         self.label_6.setLayoutDirection(QtCore.Qt.LeftToRight)
-        self.label_6.setAlignment(QtCore.Qt.AlignRight|QtCore.Qt.AlignTrailing|QtCore.Qt.AlignVCenter)
         self.doubleSpinBox_2 = QtWidgets.QDoubleSpinBox()
         self.doubleSpinBox_2.setMaximum(1)
         self.doubleSpinBox_2.setMinimum(0)
         self.doubleSpinBox_2.setDecimals(3)
         self.doubleSpinBox_2.setSingleStep(0.1)
         self.label_6.setText("COLOR_UNBRIGHTNESS")
+        hbox_6.addWidget(self.label_6)
         hbox_6.addWidget(self.doubleSpinBox_2)
         self.functions_value.append(lambda : self.doubleSpinBox_2.value())
         self.functions_update.append(lambda x: self.doubleSpinBox_2.setValue(x))
-        hbox_6.addWidget(self.label_6)
         vbox.addLayout(hbox_6)  
 
         hbox_7 = QHBoxLayout()
         self.label_7 = QtWidgets.QLabel()
         self.label_7.setLayoutDirection(QtCore.Qt.LeftToRight)
-        self.label_7.setAlignment(QtCore.Qt.AlignRight|QtCore.Qt.AlignTrailing|QtCore.Qt.AlignVCenter)
         self.spinBox_3 = QtWidgets.QSpinBox()
         self.spinBox_3.setMaximum(360)
         self.spinBox_3.setMinimum(0)
         self.spinBox_3.setSingleStep(10)
         self.label_7.setText("COVERAGE_LON")
+        hbox_7.addWidget(self.label_7)
         hbox_7.addWidget(self.spinBox_3)
         self.functions_value.append(lambda : self.spinBox_3.value())
         self.functions_update.append(lambda x: self.spinBox_3.setValue(x))
-        hbox_7.addWidget(self.label_7)
         vbox.addLayout(hbox_7)  
 
         hbox_8 = QHBoxLayout()
         self.label_8 = QtWidgets.QLabel()
         self.label_8.setLayoutDirection(QtCore.Qt.LeftToRight)
-        self.label_8.setAlignment(QtCore.Qt.AlignRight|QtCore.Qt.AlignTrailing|QtCore.Qt.AlignVCenter)
         self.spinBox_2 = QtWidgets.QSpinBox()
         self.spinBox_2.setMaximum(90)
         self.spinBox_2.setMinimum(0)
         self.spinBox_2.setSingleStep(5)
         self.label_8.setText("MAX_ANGLE")
+        hbox_8.addWidget(self.label_8)
         hbox_8.addWidget(self.spinBox_2)
         self.functions_value.append(lambda : self.spinBox_2.value())
         self.functions_update.append(lambda x: self.spinBox_2.setValue(x))
-        hbox_8.addWidget(self.label_8)
         vbox.addLayout(hbox_8)  
 
         hbox_9 = QHBoxLayout()
         self.label_9 = QtWidgets.QLabel()
         self.label_9.setLayoutDirection(QtCore.Qt.LeftToRight)
-        self.label_9.setAlignment(QtCore.Qt.AlignRight|QtCore.Qt.AlignTrailing|QtCore.Qt.AlignVCenter)
         self.spinBox_4 = QtWidgets.QSpinBox()
         self.spinBox_4.setMaximum(1000)
         self.spinBox_4.setMinimum(0)
         self.spinBox_4.setSingleStep(10)
         self.label_9.setText("SPEED")
+        hbox_9.addWidget(self.label_9)
         hbox_9.addWidget(self.spinBox_4)
         self.functions_value.append(lambda : self.spinBox_4.value())
         self.functions_update.append(lambda x: self.spinBox_4.setValue(x))
-        hbox_9.addWidget(self.label_9)
         vbox.addLayout(hbox_9)  
+
+        hbox_2 = QHBoxLayout()
+        self.plainTextEdit = QtWidgets.QPlainTextEdit()
+        self.label_2 = QtWidgets.QLabel()
+        self.label_2.setLayoutDirection(QtCore.Qt.LeftToRight)
+        self.label_2.setText("TLE_URLS\n\n\n ")
+        hbox_2.addWidget(self.label_2)
+        hbox_2.addWidget(self.plainTextEdit)
+        self.functions_value.append(lambda : self.plainTextEdit.toPlainText().split(';\n'))
+        self.functions_update.append(lambda x: self.plainTextEdit.setPlainText(';\n'.join(x)))
+        vbox.addLayout(hbox_2)
 
         self.update_settings()
 
@@ -678,7 +668,7 @@ class TabSettings(QWidget):
                 j[self.names[i]] = self.functions_value[i]()
 
 
-        self.save_to_json(**j)
+        self.save_to_pk(**j)
         self.update_settings()
         for i in j.keys():
             match i:
@@ -690,11 +680,9 @@ class TabSettings(QWidget):
                 case "MAX_ANGLE":
                     self.tracking.update_color()
 
-
-
     def update_settings(self):
-        self.names = ["COLOR_VAL", "TLE_URLS", "DELTA_TLE_HOURS", "LENGHT_PASSES", "COLOR_BRIGHTNESS", "COLOR_UNBRIGHTNESS", "COVERAGE_LON", "MAX_ANGLE", "SPEED"]
-        self.old_settings = self.load_from_json("COLOR_VAL", "TLE_URLS", "DELTA_TLE_HOURS", "LENGHT_PASSES", "COLOR_BRIGHTNESS", "COLOR_UNBRIGHTNESS", "COVERAGE_LON", "MAX_ANGLE", "SPEED")
+        self.names = ["COLOR_VAL", "DELTA_TLE_HOURS", "LENGHT_PASSES", "COLOR_BRIGHTNESS", "COLOR_UNBRIGHTNESS", "COVERAGE_LON", "MAX_ANGLE", "SPEED", "TLE_URLS"]
+        self.old_settings = self.load_from_pk("COLOR_VAL", "DELTA_TLE_HOURS", "LENGHT_PASSES", "COLOR_BRIGHTNESS", "COLOR_UNBRIGHTNESS", "COVERAGE_LON", "MAX_ANGLE", "SPEED", "TLE_URLS")
 
         for i in range(len(self.old_settings)):
             self.functions_update[i](self.old_settings[i])
@@ -735,10 +723,10 @@ def rainbow(iter, speed, brightness, unbrightness):
     to_formul = lambda i, k: min(1, max(2*(k(i) > 1) + k(i)*(1-2*(k(i) > 1)), 0) * 2)
     return (to_formul(iter, r)*(brightness - unbrightness*big_iter) + big_iter*unbrightness, to_formul(iter, g)*(brightness - unbrightness*big_iter) + big_iter*unbrightness, to_formul(iter, b)*(brightness - unbrightness*big_iter) + big_iter*unbrightness)
 
-def window(sattelite, timenow, load_from_json, save_to_json, place, selected_items, color, color_iter):
-    save_to_json = save_to_json
+def window(sattelite, timenow, load_from_pk, save_to_pk, place, selected_items, color, color_iter):
+    save_to_pk = save_to_pk
     app = QApplication(sys.argv)
-    window = MainWindow(sattelites=sattelite, timenow=timenow, save_to_json=save_to_json, place = place, selected_items = selected_items, color=color, color_iter=color_iter, load_from_json=load_from_json)
+    window = MainWindow(sattelites=sattelite, timenow=timenow, save_to_pk=save_to_pk, place = place, selected_items = selected_items, color=color, color_iter=color_iter, load_from_pk=load_from_pk)
     window.show()
     sys.exit(app.exec_())
 
